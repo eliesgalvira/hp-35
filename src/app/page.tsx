@@ -35,6 +35,18 @@ export default function Home() {
 
       {/* Page content */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-8 py-6">
+        {/* Disclaimer */}
+        <p
+          className="mb-4 text-center"
+          style={{
+            fontSize: "11px",
+            color: "#8a7a6a",
+            letterSpacing: "0.5px",
+          }}
+        >
+          Unofficial fan‑made HP‑35 simulator. Not affiliated with or endorsed by HP.
+        </p>
+
         {/* Centered block: header + calculator + guide */}
         <div className="flex flex-col items-center">
           {/* Header */}
@@ -95,7 +107,7 @@ export default function Home() {
           </div>
 
           {/* Usage guide — directly below calculator */}
-          <div className="text-center mt-6">
+          <div className="text-center mt-3 mb-3">
             <p
               className="m-0 max-w-md mx-auto"
               style={{
@@ -127,7 +139,7 @@ export default function Home() {
         </div>
 
         {/* Footer — pushed to bottom */}
-        <footer className="mt-auto pt-6 w-full border-t border-white/[0.08] py-5 text-center">
+        <footer className="mt-auto pt-3 w-full border-t border-white/[0.08] pb-5 text-center">
           <p
             className="m-0"
             style={{
