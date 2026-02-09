@@ -325,6 +325,24 @@
   font-family: "DSEG7", monospace;
 }
 
+/* ─── Active LED segments ─── */
+.hp-led-sign {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+}
+
+.hp-led-mantissa {
+  display: inline-block;
+}
+
+.hp-led-exponent {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+  margin-left: auto;
+}
+
 /* ─── Scanline overlay ─── */
 .hp-scanlines::after {
   content: "";

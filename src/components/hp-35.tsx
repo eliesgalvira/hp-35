@@ -11,83 +11,185 @@ interface StackState {
 
 export default function HP35() {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
-  const [display, setDisplay] = useState("0")
   const [entering, setEntering] = useState(false)
+  const [entryBuffer, setEntryBuffer] = useState("")
+  const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
+  const [entrySign, setEntrySign] = useState<1 | -1>(1)
+  const [pendingSign, setPendingSign] = useState<1 | -1 | null>(null)
   const [memory, setMemory] = useState(0)
   const [eexActive, setEexActive] = useState(false)
   const [eexMantissa, setEexMantissa] = useState(0)
-  const [eexExponent, setEexExponent] = useState(0)
-  const [eexSign, setEexSign] = useState(1)
+  const [eexMantissaText, setEexMantissaText] = useState("")
+  const [eexMantissaSign, setEexMantissaSign] = useState<1 | -1>(1)
+  const [eexExponentDigits, setEexExponentDigits] = useState("")
+  const [eexSign, setEexSign] = useState<1 | -1>(1)
   const [arcActive, setArcActive] = useState(false)
+  const [stackLift, setStackLift] = useState(false)
 
-  /* --- display formatting (HP-35 style: ±M.MMMMMMMMM ±EE) --- */
+  /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
-  const updateDisplay = (value: number) => {
-    if (value === 0) return "0."
-    const neg = value < 0
+  const MAX_MANTISSA_DIGITS = 10
+  const MIN_FIXED = 1e-2
+  const MAX_FIXED = 1e10
+
+  const countDigits = (value: string) => value.replace(".", "").length
+
+  const trimTrailingZeros = (value: string) => {
+    if (!value.includes(".")) return `${value}.`
+    const [intPart, fracPart = ""] = value.split(".")
+    const trimmedFrac = fracPart.replace(/0+$/, "")
+    if (trimmedFrac.length === 0) return `${intPart}.`
+    return `${intPart}.${trimmedFrac}`
+  }
+
+  const formatFixed = (value: number) => {
     const abs = Math.abs(value)
-    // If it fits as a fixed-point number (no exponent needed)
-    if (abs >= 0.001 && abs < 1e10) {
-      // Try to show as many sig digits as will fit in ~10 chars
-      for (let d = 9; d >= 0; d--) {
-        const s = (neg ? -abs : abs).toFixed(d)
-        const withDot = s.includes(".") ? s : s + "."
-        if (withDot.replace("-", "").length <= 11) return withDot
+    const digitsBefore = abs >= 1 ? Math.floor(Math.log10(abs)) + 1 : 1
+    const decimals = Math.max(0, MAX_MANTISSA_DIGITS - digitsBefore)
+    const raw = abs.toFixed(decimals)
+    const trimmed = trimTrailingZeros(raw)
+    if (abs > 0 && abs < 1) return trimmed.replace(/^0/, "")
+    return trimmed
+  }
+
+  const formatScientific = (value: number) => {
+    const abs = Math.abs(value)
+    let exp = Math.floor(Math.log10(abs))
+    let mantissa = abs / Math.pow(10, exp)
+    let mantissaRounded = Number(mantissa.toFixed(9))
+    if (mantissaRounded >= 10) {
+      mantissaRounded /= 10
+      exp += 1
+    }
+    const mantissaStr = trimTrailingZeros(mantissaRounded.toFixed(9))
+    const exponentSign = exp >= 0 ? " " : "-"
+    const exponent = String(Math.abs(exp)).padStart(2, "0")
+    return { mantissa: mantissaStr, exponentSign, exponent }
+  }
+
+  const formatValue = (value: number) => {
+    if (value === 0) {
+      return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
+    }
+    const sign = value < 0 ? "-" : ""
+    const abs = Math.abs(value)
+    if (abs >= MIN_FIXED && abs < MAX_FIXED) {
+      return { sign, mantissa: formatFixed(value), showExponent: false, exponentSign: " ", exponent: "" }
+    }
+    const sci = formatScientific(value)
+    return { sign, mantissa: sci.mantissa, showExponent: true, exponentSign: sci.exponentSign, exponent: sci.exponent }
+  }
+
+  const buildDisplay = () => {
+    if (eexActive) {
+      const mantissa =
+        eexMantissaText !== "" ? eexMantissaText : formatValue(eexMantissaSign * eexMantissa).mantissa
+      const exponent = (eexExponentDigits || "0").padStart(2, "0")
+      return {
+        sign: eexMantissaSign < 0 ? "-" : "",
+        mantissa,
+        showExponent: true,
+        exponentSign: eexSign < 0 ? "-" : " ",
+        exponent,
       }
     }
-    // Scientific notation: mantissa + exponent
-    const exp = Math.floor(Math.log10(abs))
-    const mantissa = value / Math.pow(10, exp)
-    // Format mantissa to fit, always with decimal point
-    const mantissaStr = mantissa.toFixed(8).replace(/0+$/, "")
-    const expStr = (exp >= 0 ? " " : "-") + String(Math.abs(exp)).padStart(2, "0")
-    return mantissaStr + expStr
+    if (entering) {
+      const mantissa = entryBuffer === "" ? "0." : entryBuffer
+      return { sign: entrySign < 0 ? "-" : "", mantissa, showExponent: false, exponentSign: " ", exponent: "" }
+    }
+    return formatValue(stack.x)
   }
 
   const pushStack = (newX: number) => {
     setStack((prev) => ({ t: prev.z, z: prev.y, y: prev.x, x: newX }))
-    setDisplay(updateDisplay(newX))
   }
 
   const inputDigit = (digit: string) => {
+    if (!entering && stackLift) {
+      pushStack(stack.x)
+      setStackLift(false)
+    }
     if (digit === "\u03C0") {
-      setDisplay(Math.PI.toString().slice(0, 10))
       setStack((prev) => ({ ...prev, x: Math.PI }))
       setEntering(false)
+      setEntryBuffer("")
+      setEntryDecimalExplicit(false)
+      setEntrySign(1)
+      setPendingSign(null)
+      setStackLift(false)
       setEexActive(false)
+      setEexExponentDigits("")
+      setEexMantissaText("")
       return
     }
     if (eexActive) {
-      let newExp = Math.abs(eexExponent) * 10 + Number(digit)
-      newExp = eexSign < 0 ? -newExp : newExp
-      setEexExponent(newExp)
-      setDisplay(`${eexMantissa}e${newExp}`)
-      setStack((prev) => ({ ...prev, x: eexMantissa * Math.pow(10, newExp) }))
-    } else if (entering) {
-      const newDisplay = display === "0" ? digit : display + digit
-      if (newDisplay.length <= 10) {
-        setDisplay(newDisplay)
-        setStack((prev) => ({ ...prev, x: Number.parseFloat(newDisplay) }))
-      }
-    } else {
-      setDisplay(digit)
-      setStack((prev) => ({ ...prev, x: Number.parseFloat(digit) }))
-      setEntering(true)
+      if (eexExponentDigits.length >= 2) return
+      const nextDigits = `${eexExponentDigits}${digit}`
+      setEexExponentDigits(nextDigits)
+      const exp = Number(nextDigits) * eexSign
+      const newValue = eexMantissaSign * eexMantissa * Math.pow(10, exp)
+      setStack((prev) => ({ ...prev, x: newValue }))
+      return
     }
+    if (!entering) {
+      const nextSign = pendingSign ?? 1
+      setEntrySign(nextSign)
+      setPendingSign(null)
+      setEntryDecimalExplicit(false)
+      const newBuffer = `${digit}.`
+      setEntryBuffer(newBuffer)
+      setStack((prev) => ({ ...prev, x: nextSign * Number.parseFloat(newBuffer) }))
+      setEntering(true)
+      setStackLift(false)
+      return
+    }
+    const digitsCount = countDigits(entryBuffer)
+    if (digitsCount >= MAX_MANTISSA_DIGITS) return
+    if (!entryDecimalExplicit && entryBuffer.endsWith(".")) {
+      const base = entryBuffer.slice(0, -1)
+      const newBuffer = `${base}${digit}.`
+      setEntryBuffer(newBuffer)
+      setStack((prev) => ({ ...prev, x: entrySign * Number.parseFloat(newBuffer) }))
+      return
+    }
+    const newBuffer = `${entryBuffer}${digit}`
+    setEntryBuffer(newBuffer)
+    setStack((prev) => ({ ...prev, x: entrySign * Number.parseFloat(newBuffer) }))
   }
 
   const inputDecimal = () => {
-    if (entering) {
-      if (!display.includes(".")) setDisplay(display + ".")
-    } else {
-      setDisplay("0.")
+    if (eexActive) return
+    if (!entering) {
+      if (stackLift) {
+        pushStack(stack.x)
+        setStackLift(false)
+      }
+      const nextSign = pendingSign ?? 1
+      setEntrySign(nextSign)
+      setPendingSign(null)
+      setEntryBuffer(".")
+      setEntryDecimalExplicit(true)
       setEntering(true)
+      setStack((prev) => ({ ...prev, x: nextSign * 0 }))
+      return
+    }
+    if (!entryDecimalExplicit) {
+      setEntryDecimalExplicit(true)
     }
   }
 
   const enter = () => {
     pushStack(stack.x)
     setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setEntrySign(1)
+    setPendingSign(null)
+    setStackLift(false)
+    setEexActive(false)
+    setEexExponentDigits("")
+    setEexMantissaText("")
+    setArcActive(false)
   }
 
   const operation = (op: string) => {
@@ -110,7 +212,7 @@ export default function HP35() {
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "x^y":
-        result = Math.pow(stack.y, stack.x)
+        result = Math.pow(stack.x, stack.y)
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u221Ax":
@@ -122,19 +224,31 @@ export default function HP35() {
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "sin":
-        result = arcActive ? Math.asin(stack.x) : Math.sin(stack.x)
+        if (arcActive) {
+          result = (Math.asin(stack.x) * 180) / Math.PI
+        } else {
+          result = Math.sin((stack.x * Math.PI) / 180)
+        }
         setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result }))
+        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "cos":
-        result = arcActive ? Math.acos(stack.x) : Math.cos(stack.x)
+        if (arcActive) {
+          result = (Math.acos(stack.x) * 180) / Math.PI
+        } else {
+          result = Math.cos((stack.x * Math.PI) / 180)
+        }
         setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result }))
+        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "tan":
-        result = arcActive ? Math.atan(stack.x) : Math.tan(stack.x)
+        if (arcActive) {
+          result = (Math.atan(stack.x) * 180) / Math.PI
+        } else {
+          result = Math.tan((stack.x * Math.PI) / 180)
+        }
         setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result }))
+        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "log":
         result = Math.log10(stack.x)
@@ -149,46 +263,105 @@ export default function HP35() {
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "EEX":
+        if (eexActive) return
+        if (entering && entryBuffer !== "") {
+          setEexMantissaSign(entrySign)
+          setEexMantissa(Number.parseFloat(entryBuffer))
+          setEexMantissaText(entryBuffer)
+        } else {
+          const baseValue = stack.x === 0 ? 1 : stack.x
+          setEexMantissaSign(baseValue < 0 ? -1 : 1)
+          setEexMantissa(Math.abs(baseValue))
+          setEexMantissaText(formatValue(baseValue).mantissa)
+        }
         setEexActive(true)
-        setEexMantissa(stack.x)
-        setEexExponent(0)
+        setEexExponentDigits("")
         setEexSign(1)
-        setDisplay(`${stack.x}e`)
         setEntering(false)
+        setEntryBuffer("")
+        setEntryDecimalExplicit(false)
         return
       case "CHS":
         if (eexActive) {
-          setEexSign((prev) => -prev)
-          setEexExponent((prev) => -prev)
-          setDisplay(`${eexMantissa}e${-eexExponent}`)
+          if (eexExponentDigits !== "") return
+          setEexSign((prev) => (prev === 1 ? -1 : 1))
           return
         }
-        result = -stack.x
-        setStack((prev) => ({ ...prev, x: result }))
-        break
+        if (entering) {
+          const nextSign = entrySign === 1 ? -1 : 1
+          setEntrySign(nextSign)
+          setStack((prev) => ({ ...prev, x: -prev.x }))
+          setPendingSign(nextSign)
+          setEntering(false)
+          setEntryBuffer("")
+          setEntryDecimalExplicit(false)
+          setStackLift(false)
+          return
+        }
+        setStack((prev) => ({ ...prev, x: -prev.x }))
+        setPendingSign(stack.x < 0 ? 1 : -1)
+        setEntryBuffer("")
+        setEntryDecimalExplicit(false)
+        setEntrySign(1)
+        setStackLift(false)
+        return
       case "x\u2B82y":
         setStack((prev) => ({ ...prev, x: prev.y, y: prev.x }))
-        result = stack.y
         break
       case "arc":
         setArcActive(true)
+        setEntering(false)
+        setEntryBuffer("")
+        setEntryDecimalExplicit(false)
+        setPendingSign(null)
+        setStackLift(false)
+        setEexActive(false)
+        setEexExponentDigits("")
+        setEexMantissaText("")
         return
     }
-    setDisplay(updateDisplay(result))
     setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setPendingSign(null)
+    setStackLift(true)
     setEexActive(false)
+    setEexExponentDigits("")
+    setEexMantissaText("")
+    setArcActive(false)
   }
 
   const clear = () => {
     setStack({ x: 0, y: 0, z: 0, t: 0 })
-    setDisplay("0")
+    setMemory(0)
     setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setEntrySign(1)
+    setPendingSign(null)
+    setStackLift(false)
+    setEexActive(false)
+    setEexExponentDigits("")
+    setEexMantissaText("")
+    setArcActive(false)
   }
 
-  const store = () => setMemory(stack.x)
+  const store = () => {
+    setMemory(stack.x)
+    setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setEntrySign(1)
+    setStackLift(false)
+  }
   const recall = () => {
     pushStack(memory)
     setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setEntrySign(1)
+    setPendingSign(null)
+    setStackLift(false)
   }
 
   /* --- Button factories --- */
@@ -268,6 +441,8 @@ export default function HP35() {
 
   /* --- Render --- */
 
+  const displayState = buildDisplay()
+
   return (
     <div
       style={{
@@ -326,7 +501,7 @@ export default function HP35() {
                     inset: 0,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "flex-end",
+                    justifyContent: "flex-start",
                     padding: "10px 16px",
                     fontSize: "26px",
                     letterSpacing: "2px",
@@ -345,19 +520,29 @@ export default function HP35() {
                     color: "#ff2800",
                     textShadow:
                       "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
-                    textAlign: "right",
+                    textAlign: "left",
                     letterSpacing: "2px",
                     minHeight: "30px",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "flex-end",
+                    justifyContent: "flex-start",
                     position: "relative",
                     zIndex: 1,
                     whiteSpace: "nowrap",
-                    overflow: "hidden",
+                    overflow: "visible",
+                    paddingLeft: "2px",
+                    width: "100%",
                   }}
                 >
-                  {display}
+                  <span className="hp-led-sign" data-testid="hp35-display-sign">
+                    {displayState.sign || " "}
+                  </span>
+                  <span className="hp-led-mantissa" data-testid="hp35-display-mantissa">
+                    {displayState.mantissa}
+                  </span>
+                  <span className="hp-led-exponent" data-testid="hp35-display-exponent">
+                    {displayState.showExponent ? `${displayState.exponentSign}${displayState.exponent}` : ""}
+                  </span>
                 </div>
               </div>
             </div>
@@ -467,9 +652,15 @@ export default function HP35() {
                   z: prev.t,
                   t: prev.x,
                 }))
-                setDisplay(updateDisplay(stack.y))
                 setEntering(false)
+                setEntryBuffer("")
+                setEntryDecimalExplicit(false)
+                setEntrySign(1)
+                setStackLift(false)
                 setEexActive(false)
+                setEexExponentDigits("")
+                setEexMantissaText("")
+                setPendingSign(null)
               }, "R\uD83E\uDC1F")}
               {funcBtn("STO", store)}
               {funcBtn("RCL", recall)}
@@ -488,9 +679,17 @@ export default function HP35() {
               {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
               {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
               {blueBtn(clxLabel, () => {
-                setDisplay("0")
                 setStack((prev) => ({ ...prev, x: 0 }))
                 setEntering(false)
+                setEntryBuffer("")
+                setEntryDecimalExplicit(false)
+                setEntrySign(1)
+                setPendingSign(null)
+                setStackLift(false)
+                setEexActive(false)
+                setEexExponentDigits("")
+                setEexMantissaText("")
+                setArcActive(false)
               }, "CLx")}
             </div>
 

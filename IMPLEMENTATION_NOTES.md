@@ -145,3 +145,14 @@ The 13 Vitest tests use accessible names that include the Unicode glyphs:
 - `"CLx"` (plain x in aria-label)
 
 The `displayNumber()` test helper parses HP-35 scientific notation format where the exponent is space-separated (e.g., `"1.5 03"` → `1500`).
+
+---
+
+## HP-35 Behavior Corrections (2026-02)
+
+- **Display formatting** now matches the HP-35 spec: 10-digit mantissa, fixed-point range `10^-2` to `<10^10`, scientific outside that range, trailing zeros blanked, and a visible decimal point even for integers (e.g., `11.`).
+- **Entry rendering** is left-justified with the decimal point shown as digits are entered. The `CH S` key also latches the sign so the next numeric entry overwrites X while preserving the sign.
+- **E EX behavior** displays a right-side exponent field immediately as `00`, accepts two exponent digits, and only permits exponent sign changes immediately after `E EX`.
+- **Trig/arc** are in degrees (arc returns degrees) and the arc prefix is one-shot; trigonometric operations duplicate Z into T per the manual.
+- **Stack visuals** always show X (including after `x⮂y` and `R🠟`), preventing stale display reads.
+- **Sign segment** is rendered as its own fixed-width LED segment so the minus sign is no longer clipped.
