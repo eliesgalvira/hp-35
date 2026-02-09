@@ -384,7 +384,9 @@ export default function HP35() {
                 position: "relative",
               }}>
                 {/* Amber LED display */}
-                <div style={{
+                <div
+                  data-testid="hp35-display"
+                  style={{
                   fontFamily: "'Courier New', monospace",
                   fontSize: "30px",
                   fontWeight: "bold",
@@ -396,7 +398,8 @@ export default function HP35() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "flex-end",
-                }}>
+                }}
+                >
                   {display}
                 </div>
               </div>
@@ -422,7 +425,12 @@ export default function HP35() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px", marginBottom: "5px" }}>
               {funcBtn("1/x", () => operation("1/x"))}
               {funcBtn("x↔y", () => operation("x↔y"))}
-              {funcBtn("R↓", () => {})}
+              {funcBtn("R↓", () => {
+                setStack((prev) => ({ x: prev.y, y: prev.z, z: prev.t, t: prev.x }))
+                setDisplay(updateDisplay(stack.y))
+                setEntering(false)
+                setEexActive(false)
+              })}
               {funcBtn("STO", store)}
               {funcBtn("RCL", recall)}
             </div>
