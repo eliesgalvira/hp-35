@@ -29,6 +29,8 @@ export default function HP35() {
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
   const MAX_MANTISSA_DIGITS = 10
+  const DISPLAY_MANTISSA_WIDTH = 11
+  const DISPLAY_EXPONENT_WIDTH = 3
   const MIN_FIXED = 1e-2
   const MAX_FIXED = 1e10
 
@@ -40,6 +42,39 @@ export default function HP35() {
     const trimmedFrac = fracPart.replace(/0+$/, "")
     if (trimmedFrac.length === 0) return `${intPart}.`
     return `${intPart}.${trimmedFrac}`
+  }
+
+  const normalizeSign = (value: string) => (value === "-" ? "-" : " ")
+
+  const normalizeMantissa = (value: string) => {
+    const withDecimal = value.includes(".") ? value : `${value}.`
+    const trimmed =
+      withDecimal.length > DISPLAY_MANTISSA_WIDTH ? withDecimal.slice(0, DISPLAY_MANTISSA_WIDTH) : withDecimal
+    return trimmed.padEnd(DISPLAY_MANTISSA_WIDTH, " ")
+  }
+
+  const normalizeExponentDigits = (value: string) => value.padStart(2, "0").slice(-2)
+
+  const normalizeDisplay = (parts: {
+    sign: string
+    mantissa: string
+    showExponent: boolean
+    exponentSign: string
+    exponent: string
+  }) => {
+    const base = {
+      ...parts,
+      sign: normalizeSign(parts.sign),
+      mantissa: normalizeMantissa(parts.mantissa),
+    }
+    if (!parts.showExponent) {
+      return { ...base, exponentSign: " ", exponent: "" }
+    }
+    return {
+      ...base,
+      exponentSign: normalizeSign(parts.exponentSign),
+      exponent: normalizeExponentDigits(parts.exponent),
+    }
   }
 
   const formatFixed = (value: number) => {
@@ -441,7 +476,7 @@ export default function HP35() {
 
   /* --- Render --- */
 
-  const displayState = buildDisplay()
+  const displayState = normalizeDisplay(buildDisplay())
 
   return (
     <div
@@ -503,8 +538,8 @@ export default function HP35() {
                     alignItems: "center",
                     justifyContent: "flex-start",
                     padding: "10px 16px",
-                    fontSize: "26px",
-                    letterSpacing: "2px",
+                    fontSize: "19px",
+                    letterSpacing: "1px",
                     pointerEvents: "none",
                   }}
                 >
@@ -515,13 +550,13 @@ export default function HP35() {
                   data-testid="hp35-display"
                   style={{
                     fontFamily: "'DSEG7', 'Courier New', monospace",
-                    fontSize: "26px",
+                    fontSize: "19px",
                     fontWeight: "bold",
                     color: "#ff2800",
                     textShadow:
                       "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
                     textAlign: "left",
-                    letterSpacing: "2px",
+                    letterSpacing: "1px",
                     minHeight: "30px",
                     display: "flex",
                     alignItems: "center",
@@ -535,13 +570,15 @@ export default function HP35() {
                   }}
                 >
                   <span className="hp-led-sign" data-testid="hp35-display-sign">
-                    {displayState.sign || " "}
+                    {displayState.sign}
                   </span>
                   <span className="hp-led-mantissa" data-testid="hp35-display-mantissa">
                     {displayState.mantissa}
                   </span>
                   <span className="hp-led-exponent" data-testid="hp35-display-exponent">
-                    {displayState.showExponent ? `${displayState.exponentSign}${displayState.exponent}` : ""}
+                    {displayState.showExponent
+                      ? `${displayState.exponentSign}${displayState.exponent}`
+                      : " ".repeat(DISPLAY_EXPONENT_WIDTH)}
                   </span>
                 </div>
               </div>

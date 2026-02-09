@@ -70,6 +70,17 @@ The ENTER arrow is 🡪 rotated with `transform: rotate(-90deg)` because there's
 1. **Fixed-point first:** For values in [0.001, 1e10), tries `toFixed(9)` down to `toFixed(0)`, picking the most precision that fits in ≤11 characters. Always includes a decimal point (HP-35 convention).
 2. **Scientific fallback:** Format as `M.MMMMMMMM ±EE` — mantissa with 8 decimal places (trailing zeros stripped), space-separated two-digit exponent with sign.
 
+### 15-slot LCD layout
+
+The display is always rendered as 15 fixed character slots:
+- **1 sign slot**: `" "` for positive, `"-"` for negative (never a decimal or digit).
+- **11 mantissa slots**: left-justified digits with exactly one decimal point, padded with trailing spaces.
+- **3 exponent slots**: exponent sign plus two digits (sign is a space when positive). When not in scientific/EEX mode, these slots are rendered as spaces so the width never shifts.
+
+### LED sizing
+
+The DSEG7 LED font size is set to **19px** with **1px** letter spacing to fit all 15 character slots inside the existing display bezel without clipping. Keep ghost and active layers in sync so the segments align.
+
 ---
 
 ## Button Spacing
