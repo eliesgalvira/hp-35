@@ -1,0 +1,147 @@
+# HP-35 Calculator – Implementation Notes
+
+Documenting the non-obvious decisions, font quirks, and trade-offs in this skeuomorphic HP-35 recreation.
+
+---
+
+## Fonts
+
+### TexGyreHeros (button labels)
+
+A free Helvetica clone used for all button text, matching the original HP-35's sans-serif key legends.
+
+**Metric override problem:** TexGyreHeros ships with `usWinAscent: 1125` and `usWinDescent: 307` against a 1000 upm grid. Browsers use these Win metrics to size the inline content box, producing a box 143.2% of font-size — heavily biased upward. When centered with flexbox, the oversized content box centers correctly but the _glyphs_ visually sit too low because the extra space is asymmetric.
+
+**Fix:** `ascent-override: 90%; descent-override: 25%` on both `@font-face` declarations. This normalizes the content box so glyphs stay vertically centered and don't shift when the font loads.
+
+### STIX Two Math (mathematical symbols: 𝑥, 𝑦, 𝑒, 𝜋)
+
+Used for mathematical italic glyphs on function keys. These are the Unicode Mathematical Italic codepoints, not regular letters with `font-style: italic`:
+
+| Glyph | Codepoint | Usage |
+|-------|-----------|-------|
+| 𝑥 | U+1D465 | √𝑥, 𝑒^𝑥, 𝑥^𝑦, 1/𝑥, CL𝑥 |
+| 𝑦 | U+1D466 | 𝑥^𝑦, 𝑥⮂𝑦 |
+| 𝑒 | U+1D452 | 𝑒^𝑥 |
+| 𝜋 | U+1D70B | π key |
+
+**Why Unicode Math Italic, not CSS italic?** Regular alphabet letters rendered in italic via `font-style: italic` look different from the dedicated Mathematical Italic codepoints. The Math Italic glyphs have proper typographic design for mathematical contexts — different stroke angles, serifs, and proportions.
+
+**Sizing at 1.45em:** STIX Two Math's x-height is significantly smaller than TexGyreHeros's cap-height. At the same font-size, a math 𝑥 appears much smaller than a label like "CL". Scaling to 1.45em makes the math glyphs visually match the height of surrounding uppercase TexGyreHeros text.
+
+**No vertical adjustment needed:** After extensive testing, `0em` was the correct vertical offset — the baseline alignment is correct at the default position. No `relative`/`bottom` positioning required.
+
+### DSEG7 (LED display)
+
+Seven-segment display font for the red LED readout. Ghost segments (the faint 8.8.8.8... background) use the italic variant with reduced opacity to simulate unlit segments.
+
+---
+
+## Lowercase Function Labels (log, ln, sin, cos, tan, arc)
+
+The original HP-35 prints these labels in lowercase but at the same visual height as uppercase letters like CLR, STO, RCL.
+
+**Approach:** Simply increase font-size to 16px (vs the 11px base for func keys). At 16px, the x-height of the lowercase letters in TexGyreHeros matches the cap-height at 11px. This is cleaner than CSS `scale-y` transforms which distort letter shapes and mess with spacing.
+
+**Rejected approaches:**
+- `font-variant: small-caps` — doesn't match the original; small-caps are a distinct typographic style
+- `text-transform: uppercase` with smaller font — not lowercase anymore
+- `scale-y-[1.38]` — distorts letterforms, makes strokes uneven, ruins inter-letter spacing
+- `scale-y` with `origin-[50%_78%]` — still distorts, just with better baseline anchoring
+
+---
+
+## Unicode Arrows
+
+| Arrow | Codepoint | Usage | Notes |
+|-------|-----------|-------|-------|
+| ⮂ | U+2B82 | x⮂y (swap) | Bidirectional horizontal arrow |
+| 🠟 | U+1F81F | R🠟 (roll down) | Downward arrow |
+| 🡪 | U+1F86A | ENTER🡪 | Rotated -90° via CSS to point upward |
+
+The ENTER arrow is 🡪 rotated with `transform: rotate(-90deg)` because there's no single Unicode codepoint that matches the exact arrow style of the original HP-35's upward-pointing enter arrow. The `.hp-arrow-up` class in globals.css handles this — it's one of the few things left in CSS because Tailwind's `rotate` utility combined with `inline-block` display is less readable.
+
+---
+
+## Display Formatting
+
+`updateDisplay()` mimics the real HP-35's 15-character LED display:
+
+1. **Fixed-point first:** For values in [0.001, 1e10), tries `toFixed(9)` down to `toFixed(0)`, picking the most precision that fits in ≤11 characters. Always includes a decimal point (HP-35 convention).
+2. **Scientific fallback:** Format as `M.MMMMMMMM ±EE` — mantissa with 8 decimal places (trailing zeros stripped), space-separated two-digit exponent with sign.
+
+---
+
+## Button Spacing
+
+**CH S and E EX:** The original HP-35 has visible gaps within "CHS" and "EEX" — they read as "CH S" and "E EX". Reproduced using Unicode thin space U+2009 between the letter groups.
+
+---
+
+## Button Centering (Tailwind vs CSS)
+
+All four button factories (`funcBtn`, `blueBtn`, `numBtn`, `opBtn`) use Tailwind `flex items-center justify-center` for centering. The CSS classes in globals.css only handle visual styling (colors, gradients, shadows, press animations) — no layout.
+
+This avoids specificity conflicts and keeps layout logic colocated with the component.
+
+---
+
+## √x Radical
+
+Built from two pieces:
+1. The √ radical sign (U+221A) from STIX Two Math at 1.05em
+2. The radicand 𝑥 with a `border-t-[1.5px] border-current` Tailwind border acting as the vinculum (the horizontal bar over the radicand)
+
+**Rejected approaches:**
+- `text-decoration: overline` — too thick, wrong vertical position, can't control independently
+- SVG path — over-engineered for a single glyph
+- Precomposed √𝑥 character — doesn't exist in Unicode
+
+---
+
+## Trapezoidal Body
+
+The HP-35's distinctive tapered shape uses `clip-path: polygon(3% 0%, 97% 0%, 100% 100%, 0% 100%)` — wider at the bottom than the top, matching the original's wedge profile.
+
+---
+
+## ON/OFF Switch
+
+Positioned below the display and left-aligned, matching the original. The toggle nub is fixed to the right (ON position). The red power LED is a radial gradient circle with a glow `box-shadow`.
+
+---
+
+## Silver Chin
+
+The bottom bar with the HP logo and "HEWLETT · PACKARD" wordmark. The dot is U+2022 (bullet) with non-breaking spaces (U+00A0) on each side. The HP logo square uses the italic lowercase "hp" matching HP's brand style.
+
+**Stretched wordmark:** On the original HP-35, "HEWLETT · PACKARD" is spread across the entire width of the chin bar from the logo to the right edge. Achieved using `flex-1` on the wordmark div (so it fills remaining space after the logo) combined with `text-align-last: justify` which stretches a single line of text edge-to-edge. This is more faithful than a fixed `letter-spacing` value, as it adapts to the available width.
+
+---
+
+## Component vs Page Layout
+
+The HP-35 component (`hp-35.tsx`) renders _only_ the calculator body — no viewport wrappers, no centering, no `min-height: 100vh`. This is intentional.
+
+**Why:** The page layout (`page.tsx`) needs full control over positioning the calculator relative to the header, guide text, and footer. If the component wraps itself in a full-viewport centered container, the page layout can't reduce gaps or vertically center the entire content group. The component is a pure visual unit; the page owns the layout.
+
+---
+
+## Page Layout
+
+The single-page layout uses a flexbox column (`flex flex-col items-center justify-center min-h-screen`) to vertically center a grouped block containing header → calculator → usage guide as one unit. The footer uses `mt-auto` to push to the bottom.
+
+The background is the walnut-wood desk theme: a dark radial gradient with SVG fractal noise for wood grain texture and a warm brass spotlight overlay.
+
+---
+
+## Test Considerations
+
+The 13 Vitest tests use accessible names that include the Unicode glyphs:
+- `"ENTER🡪"` (not "ENTER↑")
+- `"√x"` (U+221A + plain x, since aria-label is a string)
+- `"x⮂y"` (U+2B82)
+- `"R🠟"` (U+1F81F)
+- `"CLx"` (plain x in aria-label)
+
+The `displayNumber()` test helper parses HP-35 scientific notation format where the exponent is space-separated (e.g., `"1.5 03"` → `1500`).
