@@ -100,8 +100,15 @@ This avoids specificity conflicts and keeps layout logic colocated with the comp
 ## √x Radical
 
 Built from two pieces:
-1. The √ radical sign (U+221A) from STIX Two Math at 1.05em
-2. The radicand 𝑥 with a `border-t-[1.5px] border-current` Tailwind border acting as the vinculum (the horizontal bar over the radicand)
+1. The √ radical sign (U+221A) from STIX Two Math at **10px**, raised with a Tailwind `-top-[...]` offset so its start aligns with the bar.
+2. The radicand 𝑥 (math italic) plus a separate, absolutely positioned **pseudo-element bar** so the bar can be positioned without moving the x.
+
+**Why a pseudo-element bar:** Fractional `border-t` thicknesses and `top` offsets snap to device pixels (e.g., 1.25px vs 1.24px or 0.08em vs 0.07em), causing visible jumps. Using `h-px` + `scale-y-[...]` provides smoother thickness tuning, and `translate-y-[var(--sqrt-bar-offset)]` gives a high-precision vertical slider.
+
+**Current approach (Tailwind):**
+- Bar thickness: `after:h-px after:bg-current after:scale-y-[...]`
+- Bar position: `after:top-0 after:translate-y-[var(--sqrt-bar-offset)]`
+- Bar length: `pr-[...]` on the radicand wrapper
 
 **Rejected approaches:**
 - `text-decoration: overline` — too thick, wrong vertical position, can't control independently
