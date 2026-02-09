@@ -25,8 +25,18 @@ const displayNumber = () => {
 const expectDisplay = (expected: { sign?: string; mantissa?: string; exponent?: string }) => {
   const parts = getDisplayParts()
   if (expected.sign !== undefined) expect(parts.sign).toBe(expected.sign)
-  if (expected.mantissa !== undefined) expect(parts.mantissa).toBe(expected.mantissa)
-  if (expected.exponent !== undefined) expect(parts.exponent).toBe(expected.exponent)
+  if (expected.mantissa !== undefined) expect(parts.mantissa.trimEnd()).toBe(expected.mantissa)
+  if (expected.exponent !== undefined) expect(parts.exponent.trimEnd()).toBe(expected.exponent)
+}
+
+const expectFixedDisplay = () => {
+  const { sign, mantissa, exponent } = getDisplayParts()
+  expect(sign.length).toBe(1)
+  expect([" ", "-"]).toContain(sign)
+  expect(mantissa.length).toBe(11)
+  expect((mantissa.match(/\./g) ?? []).length).toBe(1)
+  expect(exponent.length).toBe(3)
+  expect(sign.length + mantissa.length + exponent.length).toBe(15)
 }
 
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
@@ -43,6 +53,7 @@ describe("HP-35 behavior", () => {
   it("starts with a zeroed display", () => {
     render(<HP35 />)
     expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
+    expectFixedDisplay()
   })
 
   it("enters digits left-justified with a trailing decimal", async () => {
@@ -51,6 +62,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["1", "2"])
     expectDisplay({ sign: " ", mantissa: "12." })
+    expectFixedDisplay()
   })
 
   it("keeps decimal placement during entry", async () => {
@@ -59,6 +71,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["1", "2", ".", "3"])
     expectDisplay({ sign: " ", mantissa: "12.3" })
+    expectFixedDisplay()
   })
 
   it("displays pi with 10 digits", async () => {
@@ -67,6 +80,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["\u03C0"])
     expectDisplay({ sign: " ", mantissa: "3.141592654" })
+    expectFixedDisplay()
   })
 
   it("uses X as base for x^y", async () => {
@@ -98,10 +112,22 @@ describe("HP-35 behavior", () => {
     render(<HP35 />)
 
     await pressSequence(user, ["1", "EEX"])
-    expect(getDisplayParts().exponent.trim()).toBe("00")
+    expect(getDisplayParts().exponent).toBe(" 00")
     await pressSequence(user, ["2"])
-    expect(getDisplayParts().exponent.trim()).toBe("02")
+    expect(getDisplayParts().exponent).toBe(" 02")
     expect(displayNumber()).toBeCloseTo(100, 6)
+    expectFixedDisplay()
+  })
+
+  it("renders exponent sign only when negative", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["1", "EEX"])
+    expect(getDisplayParts().exponent).toBe(" 00")
+    await press(user, "CHS")
+    expect(getDisplayParts().exponent).toBe("-00")
+    expectFixedDisplay()
   })
 
   it("latches sign for the next entry after CHS", async () => {
@@ -110,6 +136,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["5", "CHS", "1", "0"])
     expectDisplay({ sign: "-", mantissa: "10." })
+    expectFixedDisplay()
   })
 
   it("clears all registers with CLR", async () => {
@@ -118,6 +145,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "CLR"])
     expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
+    expectFixedDisplay()
   })
 
   it("swaps X and Y and always shows X", async () => {
@@ -126,6 +154,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "x\u2B82y"])
     expectDisplay({ sign: " ", mantissa: "2." })
+    expectFixedDisplay()
   })
 
   it("rolls the stack down and shows new X", async () => {
@@ -134,6 +163,7 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["1", "ENTER\uD83E\uDC6A", "2", "ENTER\uD83E\uDC6A", "3", "R\uD83E\uDC1F"])
     expectDisplay({ sign: " ", mantissa: "2." })
+    expectFixedDisplay()
   })
 
   it("does not append digits after STO", async () => {

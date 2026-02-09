@@ -334,11 +334,13 @@
 
 .hp-led-mantissa {
   display: inline-block;
+  width: 11ch;
+  text-align: left;
 }
 
 .hp-led-exponent {
   display: inline-block;
-  min-width: 3ch;
+  width: 3ch;
   text-align: right;
   margin-left: auto;
 }
