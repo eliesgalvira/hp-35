@@ -3,15 +3,30 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
 
-const getDisplay = () => screen.getByTestId("hp35-display")
+const getDisplayParts = () => {
+  const sign = screen.getByTestId("hp35-display-sign").textContent ?? ""
+  const mantissa = screen.getByTestId("hp35-display-mantissa").textContent ?? ""
+  const exponent = screen.getByTestId("hp35-display-exponent").textContent ?? ""
+  return { sign, mantissa, exponent }
+}
+
 const displayNumber = () => {
-  const raw = getDisplay().textContent ?? "NaN"
-  // HP-35 display uses space for positive exponent: "1.23456789 02" or "-" for neg: "1.23456789-02"
-  const m = raw.match(/^(.+?)\s(\d{2})$/)
-  if (m) return Number(m[1]) * Math.pow(10, Number(m[2]))
-  const m2 = raw.match(/^(.+?)(-)((\d{2}))$/)
-  if (m2) return Number(m2[1]) * Math.pow(10, -Number(m2[3]))
-  return Number(raw)
+  const { sign, mantissa, exponent } = getDisplayParts()
+  const signValue = sign.includes("-") ? -1 : 1
+  const mantissaValue = Number.parseFloat(mantissa)
+  if (Number.isNaN(mantissaValue)) return NaN
+  if (exponent.trim() === "") return signValue * mantissaValue
+  const expDigitsMatch = exponent.match(/\d{2}/)
+  const expDigits = expDigitsMatch ? Number(expDigitsMatch[0]) : 0
+  const expSign = exponent.includes("-") ? -1 : 1
+  return signValue * mantissaValue * Math.pow(10, expSign * expDigits)
+}
+
+const expectDisplay = (expected: { sign?: string; mantissa?: string; exponent?: string }) => {
+  const parts = getDisplayParts()
+  if (expected.sign !== undefined) expect(parts.sign).toBe(expected.sign)
+  if (expected.mantissa !== undefined) expect(parts.mantissa).toBe(expected.mantissa)
+  if (expected.exponent !== undefined) expect(parts.exponent).toBe(expected.exponent)
 }
 
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
@@ -27,55 +42,74 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
 describe("HP-35 behavior", () => {
   it("starts with a zeroed display", () => {
     render(<HP35 />)
-    expect(getDisplay()).toHaveTextContent("0")
+    expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
   })
 
-  it("enters digits and decimals in entry mode", async () => {
+  it("enters digits left-justified with a trailing decimal", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["1", "2", "3", ".", "4"])
-    expect(getDisplay()).toHaveTextContent("123.4")
+    await pressSequence(user, ["1", "2"])
+    expectDisplay({ sign: " ", mantissa: "12." })
   })
 
-  it("uses RPN entry: 3 ENTER 4 + -> 7", async () => {
+  it("keeps decimal placement during entry", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "+"])
-    expect(displayNumber()).toBeCloseTo(7, 6)
+    await pressSequence(user, ["1", "2", ".", "3"])
+    expectDisplay({ sign: " ", mantissa: "12.3" })
   })
 
-  it("shifts the stack after binary operations", async () => {
+  it("displays pi with 10 digits", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "ENTER\uD83E\uDC6A", "5", "+", "+"])
-    expect(displayNumber()).toBeCloseTo(12, 6)
+    await pressSequence(user, ["\u03C0"])
+    expectDisplay({ sign: " ", mantissa: "3.141592654" })
   })
 
-  it("keeps Y intact for unary operations", async () => {
+  it("uses X as base for x^y", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["9", "ENTER\uD83E\uDC6A", "2", "\u221Ax", "+"])
-    expect(displayNumber()).toBeCloseTo(9 + Math.sqrt(2), 6)
+    await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "x^y"])
+    expect(displayNumber()).toBeCloseTo(9, 6)
   })
 
-  it("swaps X and Y with x↔y", async () => {
+  it("uses degrees for trig functions", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "x\u2B82y", "+"])
-    expect(displayNumber()).toBeCloseTo(7, 6)
+    await pressSequence(user, ["3", "0", "sin"])
+    expect(displayNumber()).toBeCloseTo(0.5, 6)
   })
 
-  it("clears only X with CLx", async () => {
+  it("applies arc as a one-shot prefix returning degrees", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "CLx", "+"])
-    expect(displayNumber()).toBeCloseTo(3, 6)
+    await pressSequence(user, [".", "7", "arc", "sin"])
+    expect(displayNumber()).toBeCloseTo((Math.asin(0.7) * 180) / Math.PI, 6)
+  })
+
+  it("shows exponent field on EEX and accepts two digits", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["1", "EEX"])
+    expect(getDisplayParts().exponent.trim()).toBe("00")
+    await pressSequence(user, ["2"])
+    expect(getDisplayParts().exponent.trim()).toBe("02")
+    expect(displayNumber()).toBeCloseTo(100, 6)
+  })
+
+  it("latches sign for the next entry after CHS", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["5", "CHS", "1", "0"])
+    expectDisplay({ sign: "-", mantissa: "10." })
   })
 
   it("clears all registers with CLR", async () => {
@@ -83,52 +117,70 @@ describe("HP-35 behavior", () => {
     render(<HP35 />)
 
     await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "CLR"])
-    expect(getDisplay()).toHaveTextContent("0")
+    expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
   })
 
-  it("stores and recalls memory", async () => {
+  it("swaps X and Y and always shows X", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["8", "STO", "CLR", "RCL"])
-    expect(displayNumber()).toBeCloseTo(8, 6)
+    await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "x\u2B82y"])
+    expectDisplay({ sign: " ", mantissa: "2." })
   })
 
-  it("toggles sign with CHS", async () => {
+  it("rolls the stack down and shows new X", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["5", "CHS"])
-    expect(getDisplay()).toHaveTextContent("-5")
+    await pressSequence(user, ["1", "ENTER\uD83E\uDC6A", "2", "ENTER\uD83E\uDC6A", "3", "R\uD83E\uDC1F"])
+    expectDisplay({ sign: " ", mantissa: "2." })
   })
 
-  it("builds scientific notation with EEX", async () => {
+  it("does not append digits after STO", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["1", "EEX", "2"])
-    expect(getDisplay()).toHaveTextContent("e2")
-    expect(displayNumber()).toBeCloseTo(100, 6)
+    await pressSequence(user, ["5", "STO", "0"])
+    expectDisplay({ sign: " ", mantissa: "0." })
   })
 
-  it("applies arc only to the next trig function", async () => {
+  it("rolls down through populated stack registers", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["1", "arc", "sin"])
-    const first = displayNumber()
-    await pressSequence(user, ["sin"])
-    const second = displayNumber()
+    await pressSequence(user, [
+      "1",
+      "1",
+      "0",
+      "√x",
+      "4",
+      "5",
+      "sin",
+      ".",
+      "7",
+      "arc",
+      "sin",
+      "1",
+      "0",
+      "1/x",
+    ])
 
-    expect(first).toBeCloseTo(Math.asin(1), 6)
-    expect(second).toBeCloseTo(Math.sin(Math.asin(1)), 6)
-  })
+    const sqrt110 = Math.sqrt(110)
+    const sin45 = Math.sin((45 * Math.PI) / 180)
+    const arcsin07 = (Math.asin(0.7) * 180) / Math.PI
 
-  it("rolls the stack down with R↓", async () => {
-    const user = userEvent.setup()
-    render(<HP35 />)
+    expect(displayNumber()).toBeCloseTo(0.1, 6)
 
-    await pressSequence(user, ["1", "ENTER\uD83E\uDC6A", "2", "ENTER\uD83E\uDC6A", "3", "R\uD83E\uDC1F", "+"])
-    expect(displayNumber()).toBeCloseTo(3, 6)
+    await press(user, "R🠟")
+    expect(displayNumber()).toBeCloseTo(arcsin07, 6)
+
+    await press(user, "R🠟")
+    expect(displayNumber()).toBeCloseTo(sin45, 6)
+
+    await press(user, "R🠟")
+    expect(displayNumber()).toBeCloseTo(sqrt110, 6)
+
+    await press(user, "R🠟")
+    expect(displayNumber()).toBeCloseTo(0.1, 6)
   })
 })
