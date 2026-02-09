@@ -1,36 +1,35 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# HP-35 Scientific Calculator
+
+A web-based simulation of the HP-35, the world's first scientific pocket calculator, originally introduced by Hewlett-Packard in 1972.
+
+This project faithfully recreates the HP-35's Reverse Polish Notation (RPN) interface, including its four-level stack, trigonometric, logarithmic, and exponential functions — all 35 original keys.
+
+## Features
+
+- **RPN (Reverse Polish Notation)** — no equals key; operands are entered first, then the operator
+- **Four-level stack** (X, Y, Z, T) with stack manipulation (swap, roll down)
+- **Scientific functions** — sin, cos, tan (and their inverses), log, ln, eˣ, √x, 1/x, xʸ
+- **Memory** — store and recall
+- **EEX** — scientific notation entry
+- **CHS** — change sign
+- **π** constant
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [Next.js](https://nextjs.org) (App Router)
+- [React](https://react.dev)
+- [TypeScript](https://www.typescriptlang.org)
+- [Tailwind CSS](https://tailwindcss.com)
 
-## Learn More
+## Legal Disclaimer
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This website is an independent fan project and is **not** affiliated with, endorsed by, or in any way associated with Hewlett-Packard Company, HP Inc., or Hewlett Packard Enterprise. The HP-35 name and all related trademarks belong to their respective owners. This project is provided for educational and nostalgic purposes only.
