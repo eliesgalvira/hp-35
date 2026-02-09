@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type CSSProperties } from "react"
 
 interface StackState {
   x: number
@@ -433,8 +433,13 @@ export default function HP35() {
 
   const sqrtLabel = (
     <span className={`${m} inline-flex items-end whitespace-nowrap`} aria-hidden="true">
-      <span className="text-[1.05em] leading-[0.82] -mr-[0.04em]">{"\u221A"}</span>
-      <span className="relative pt-[0.08em] border-t-[1.5px] border-current">{"\uD835\uDC65"}</span>
+      <span className="relative -top-[0.40em] text-[10px] leading-[0.82] -mr-[0.04em]">{"\u221A"}</span>
+      <span
+        className="relative pr-[0.2em] after:content-[''] after:absolute after:left-0 after:right-0 after:top-0 after:translate-y-[var(--sqrt-bar-offset)] after:h-px after:bg-current after:origin-top after:scale-y-[1]"
+        style={{ "--sqrt-bar-offset": "0.055em" } as CSSProperties}
+      >
+        <span className="relative z-[1]">{"\uD835\uDC65"}</span>
+      </span>
     </span>
   )
 
