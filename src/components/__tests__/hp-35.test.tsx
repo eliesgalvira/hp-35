@@ -4,7 +4,15 @@ import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
 
 const getDisplay = () => screen.getByTestId("hp35-display")
-const displayNumber = () => Number(getDisplay().textContent ?? "NaN")
+const displayNumber = () => {
+  const raw = getDisplay().textContent ?? "NaN"
+  // HP-35 display uses space for positive exponent: "1.23456789 02" or "-" for neg: "1.23456789-02"
+  const m = raw.match(/^(.+?)\s(\d{2})$/)
+  if (m) return Number(m[1]) * Math.pow(10, Number(m[2]))
+  const m2 = raw.match(/^(.+?)(-)((\d{2}))$/)
+  if (m2) return Number(m2[1]) * Math.pow(10, -Number(m2[3]))
+  return Number(raw)
+}
 
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(screen.getByRole("button", { name: label }))
@@ -34,7 +42,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER ↑", "4", "+"])
+    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "+"])
     expect(displayNumber()).toBeCloseTo(7, 6)
   })
 
@@ -42,7 +50,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER ↑", "4", "ENTER ↑", "5", "+", "+"])
+    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "ENTER\uD83E\uDC6A", "5", "+", "+"])
     expect(displayNumber()).toBeCloseTo(12, 6)
   })
 
@@ -50,7 +58,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["9", "ENTER ↑", "2", "√x", "+"])
+    await pressSequence(user, ["9", "ENTER\uD83E\uDC6A", "2", "\u221Ax", "+"])
     expect(displayNumber()).toBeCloseTo(9 + Math.sqrt(2), 6)
   })
 
@@ -58,7 +66,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER ↑", "4", "x↔y", "+"])
+    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "x\u2B82y", "+"])
     expect(displayNumber()).toBeCloseTo(7, 6)
   })
 
@@ -66,7 +74,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["3", "ENTER ↑", "4", "CLx", "+"])
+    await pressSequence(user, ["3", "ENTER\uD83E\uDC6A", "4", "CLx", "+"])
     expect(displayNumber()).toBeCloseTo(3, 6)
   })
 
@@ -74,7 +82,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["2", "ENTER ↑", "3", "CLR"])
+    await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "CLR"])
     expect(getDisplay()).toHaveTextContent("0")
   })
 
@@ -120,7 +128,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["1", "ENTER ↑", "2", "ENTER ↑", "3", "R↓", "+"])
+    await pressSequence(user, ["1", "ENTER\uD83E\uDC6A", "2", "ENTER\uD83E\uDC6A", "3", "R\uD83E\uDC1F", "+"])
     expect(displayNumber()).toBeCloseTo(3, 6)
   })
 })

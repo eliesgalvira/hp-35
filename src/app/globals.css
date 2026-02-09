@@ -120,3 +120,223 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ─── DSEG7 Classic – 7-segment LED display font ─── */
+@font-face {
+  font-family: "DSEG7";
+  src: url("/fonts/dseg7.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "DSEG7";
+  src: url("/fonts/dseg7-italic.woff2") format("woff2");
+  font-weight: bold;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* ─── TeX Gyre Heros – HP-35 key labels ─── */
+@font-face {
+  font-family: "TexGyreHeros";
+  src: url("/fonts/texgyreheros-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 90%;
+  descent-override: 25%;
+}
+@font-face {
+  font-family: "TexGyreHeros";
+  src: url("/fonts/texgyreheros-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 90%;
+  descent-override: 25%;
+}
+
+/* ─── STIX Two Math – mathematical symbols on keys ─── */
+@font-face {
+  font-family: "STIXTwoMath";
+  src: url("/fonts/STIXTwoMath-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Rotated arrow (🡪 U+1F86A rotated to point up) */
+.hp-arrow-up {
+  display: inline-block;
+  transform: rotate(-90deg);
+  font-size: 0.9em;
+  line-height: 1;
+}
+
+/* ─── HP-35 Skeuomorphic Button Styles ─── */
+
+/* Dark brown/charcoal function keys (top 3 rows: x^y, log, ln, √x, sin…) */
+.hp-key-func {
+  position: relative;
+  background: linear-gradient(180deg, #4a4040 0%, #333030 40%, #2a2626 100%);
+  color: #e8e0d4;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  height: 36px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  font-family: "TexGyreHeros", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow:
+    0 3px 1px rgba(0, 0, 0, 0.6),
+    0 4px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+  transform: translateY(0);
+  transition: transform 50ms ease, box-shadow 50ms ease, background 50ms ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.hp-key-func:active {
+  transform: translateY(2px);
+  background: linear-gradient(180deg, #3a3636 0%, #2a2626 40%, #222020 100%);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Blue accent keys (ENTER, CHS, EEX, CLx, CLR) — matching real HP-35 blue */
+.hp-key-blue {
+  position: relative;
+  background: linear-gradient(180deg, #5da0c4 0%, #3a7da8 40%, #2e6a90 100%);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  height: 36px;
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  font-family: "TexGyreHeros", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow:
+    0 3px 1px rgba(0, 0, 0, 0.5),
+    0 4px 4px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transform: translateY(0);
+  transition: transform 50ms ease, box-shadow 50ms ease, background 50ms ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.hp-key-blue:active {
+  transform: translateY(2px);
+  background: linear-gradient(180deg, #4a8db0 0%, #2e6a90 40%, #255a7a 100%);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* Ivory/cream number keys (0–9, decimal, π) */
+.hp-key-num {
+  position: relative;
+  background: linear-gradient(180deg, #f0e8d8 0%, #ddd5c4 40%, #d0c8b4 100%);
+  color: #2a2218;
+  border: none;
+  border-radius: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  height: 44px;
+  cursor: pointer;
+  font-family: "TexGyreHeros", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow:
+    0 3px 1px rgba(0, 0, 0, 0.35),
+    0 4px 5px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  transform: translateY(0);
+  transition: transform 50ms ease, box-shadow 50ms ease, background 50ms ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.hp-key-num:active {
+  transform: translateY(2px);
+  background: linear-gradient(180deg, #e0d8c8 0%, #ccc4b0 40%, #c0b8a4 100%);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 3px rgba(0, 0, 0, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Blue operator keys (÷, ×, +, −) — same blue as accent keys */
+.hp-key-op {
+  position: relative;
+  background: linear-gradient(180deg, #5da0c4 0%, #3a7da8 40%, #2e6a90 100%);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  height: 44px;
+  cursor: pointer;
+  font-family: "TexGyreHeros", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow:
+    0 3px 1px rgba(0, 0, 0, 0.5),
+    0 4px 5px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+  transform: translateY(0);
+  transition: transform 50ms ease, box-shadow 50ms ease, background 50ms ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.hp-key-op:active {
+  transform: translateY(2px);
+  background: linear-gradient(180deg, #4a8db0 0%, #2e6a90 40%, #255a7a 100%);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* ─── Calculator body ─── */
+.hp-body-texture {
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ─── LED ghost segment layer ─── */
+.hp-led-ghost {
+  color: rgba(200, 30, 0, 0.08);
+  font-family: "DSEG7", monospace;
+}
+
+/* ─── Scanline overlay ─── */
+.hp-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.06) 2px,
+    rgba(0, 0, 0, 0.06) 4px
+  );
+  pointer-events: none;
+  border-radius: inherit;
+}

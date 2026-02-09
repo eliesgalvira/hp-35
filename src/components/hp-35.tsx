@@ -20,12 +20,28 @@ export default function HP35() {
   const [eexSign, setEexSign] = useState(1)
   const [arcActive, setArcActive] = useState(false)
 
+  /* --- display formatting (HP-35 style: ±M.MMMMMMMMM ±EE) --- */
+
   const updateDisplay = (value: number) => {
-    if (value === 0) return "0"
-    if (Math.abs(value) >= 1e10 || (Math.abs(value) < 1e-9 && value !== 0)) {
-      return value.toExponential(6)
+    if (value === 0) return "0."
+    const neg = value < 0
+    const abs = Math.abs(value)
+    // If it fits as a fixed-point number (no exponent needed)
+    if (abs >= 0.001 && abs < 1e10) {
+      // Try to show as many sig digits as will fit in ~10 chars
+      for (let d = 9; d >= 0; d--) {
+        const s = (neg ? -abs : abs).toFixed(d)
+        const withDot = s.includes(".") ? s : s + "."
+        if (withDot.replace("-", "").length <= 11) return withDot
+      }
     }
-    return value.toString().slice(0, 10)
+    // Scientific notation: mantissa + exponent
+    const exp = Math.floor(Math.log10(abs))
+    const mantissa = value / Math.pow(10, exp)
+    // Format mantissa to fit, always with decimal point
+    const mantissaStr = mantissa.toFixed(8).replace(/0+$/, "")
+    const expStr = (exp >= 0 ? " " : "-") + String(Math.abs(exp)).padStart(2, "0")
+    return mantissaStr + expStr
   }
 
   const pushStack = (newX: number) => {
@@ -34,7 +50,7 @@ export default function HP35() {
   }
 
   const inputDigit = (digit: string) => {
-    if (digit === "π") {
+    if (digit === "\u03C0") {
       setDisplay(Math.PI.toString().slice(0, 10))
       setStack((prev) => ({ ...prev, x: Math.PI }))
       setEntering(false)
@@ -85,11 +101,11 @@ export default function HP35() {
         result = stack.y - stack.x
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
-      case "×":
+      case "\u00D7":
         result = stack.y * stack.x
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
-      case "÷":
+      case "\u00F7":
         result = stack.y / stack.x
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
@@ -97,7 +113,7 @@ export default function HP35() {
         result = Math.pow(stack.y, stack.x)
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
-      case "√x":
+      case "\u221Ax":
         result = Math.sqrt(stack.x)
         setStack((prev) => ({ ...prev, x: result }))
         break
@@ -150,7 +166,7 @@ export default function HP35() {
         result = -stack.x
         setStack((prev) => ({ ...prev, x: result }))
         break
-      case "x↔y":
+      case "x\u2B82y":
         setStack((prev) => ({ ...prev, x: prev.y, y: prev.x }))
         result = stack.y
         break
@@ -175,284 +191,336 @@ export default function HP35() {
     setEntering(false)
   }
 
-  const funcBtn = (label: string | React.ReactNode, action: () => void) => (
-    <button
-      onMouseDown={action}
-      className="group relative"
-      style={{
-        background: "linear-gradient(180deg, #5a4a3a 0%, #3e3228 100%)",
-        color: "#f0e6d6",
-        border: "1px solid #6b5b4b",
-        borderRadius: "6px",
-        fontSize: "11px",
-        fontWeight: 700,
-        height: "40px",
-        cursor: "pointer",
-        letterSpacing: "0.5px",
-        transition: "all 0.1s ease",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1)",
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #6b5b4b 0%, #4e4238 100%)"
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #5a4a3a 0%, #3e3228 100%)"
-      }}
-    >
+  /* --- Button factories --- */
+
+  const funcBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={action} className="hp-key-func flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const blueBtn = (label: string | React.ReactNode, action: () => void, extra?: React.CSSProperties) => (
-    <button
-      onMouseDown={action}
-      style={{
-        background: "linear-gradient(180deg, #c47a32 0%, #9e5a1e 100%)",
-        color: "#fff",
-        border: "1px solid #d4883a",
-        borderRadius: "6px",
-        fontSize: "12px",
-        fontWeight: 800,
-        height: "40px",
-        cursor: "pointer",
-        letterSpacing: "0.5px",
-        transition: "all 0.1s ease",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
-        ...extra,
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #d48a42 0%, #ae6a2e 100%)"
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #c47a32 0%, #9e5a1e 100%)"
-      }}
-    >
+  const blueBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={action} className="hp-key-blue flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const numBtn = (label: string, action: () => void) => (
-    <button
-      onMouseDown={action}
-      style={{
-        background: "linear-gradient(180deg, #f5edd5 0%, #e8dfc5 100%)",
-        color: "#2a2218",
-        border: "1px solid #d4cbb0",
-        borderRadius: "6px",
-        fontSize: "18px",
-        fontWeight: 700,
-        height: "48px",
-        cursor: "pointer",
-        transition: "all 0.1s ease",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8)",
-        fontFamily: "'Georgia', serif",
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #fff8e0 0%, #f2e8d0 100%)"
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #f5edd5 0%, #e8dfc5 100%)"
-      }}
-    >
+  const numBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={action} className="hp-key-num flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
   const opBtn = (label: string, action: () => void) => (
-    <button
-      onMouseDown={action}
-      style={{
-        background: "linear-gradient(180deg, #c47a32 0%, #9e5a1e 100%)",
-        color: "#fff",
-        border: "1px solid #d4883a",
-        borderRadius: "6px",
-        fontSize: "20px",
-        fontWeight: 700,
-        height: "48px",
-        cursor: "pointer",
-        transition: "all 0.1s ease",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2)",
-        fontFamily: "'Georgia', serif",
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #d48a42 0%, #ae6a2e 100%)"
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.background = "linear-gradient(180deg, #c47a32 0%, #9e5a1e 100%)"
-      }}
-    >
+    <button onMouseDown={action} className="hp-key-op flex items-center justify-center">
       {label}
     </button>
   )
 
+  /* --- Math label components --- */
+
+  const m = "font-['STIXTwoMath','Times_New_Roman',serif] text-[1.45em] leading-none"
+  // Lowercase function labels (log, ln, sin, cos, tan, arc) sized so x-height ≈ cap-height at 11px
+  const lc = "text-[16px]"
+
+  const sqrtLabel = (
+    <span className={`${m} inline-flex items-end whitespace-nowrap`} aria-hidden="true">
+      <span className="text-[1.05em] leading-[0.82] -mr-[0.04em]">{"\u221A"}</span>
+      <span className="relative pt-[0.08em] border-t-[1.5px] border-current">{"\uD835\uDC65"}</span>
+    </span>
+  )
+
+  const expLabel = (
+    <span className={m} aria-hidden="true">
+      {"\uD835\uDC52"}<sup className="text-[0.58em] relative -top-[0.7em] ml-[0.02em]">{"\uD835\uDC65"}</sup>
+    </span>
+  )
+
+  const xyLabel = (
+    <span className={m} aria-hidden="true">
+      {"\uD835\uDC65"}<sup className="text-[0.58em] relative -top-[0.7em] ml-[0.02em]">{"\uD835\uDC66"}</sup>
+    </span>
+  )
+
+  const oneOverXLabel = (
+    <span aria-hidden="true">1/<span className={m}>{"\uD835\uDC65"}</span></span>
+  )
+
+  const swapLabel = (
+    <span aria-hidden="true">
+      <span className={m}>{"\uD835\uDC65"}</span>{"\u2B82"}<span className={m}>{"\uD835\uDC66"}</span>
+    </span>
+  )
+
+  const enterLabel = (
+    <span className="inline-flex items-center gap-1">
+      ENTER<span className="hp-arrow-up">{"\uD83E\uDC6A"}</span>
+    </span>
+  )
+
+  const piLabel = (
+    <span className={m}>{"\uD835\uDF0B"}</span>
+  )
+
+  const clxLabel = (
+    <span>CL<span className={m}>{"\uD835\uDC65"}</span></span>
+  )
+
+  /* --- Render --- */
+
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f5edd5",
-      fontFamily: "'Georgia', 'Times New Roman', serif",
-    }}>
-      {/* Main Content */}
-      <main style={{ maxWidth: "960px", margin: "0 auto", padding: "0 32px" }}>
-        {/* Hero Section */}
-        <section style={{ padding: "60px 0 40px", textAlign: "center" }}>
-          <div style={{
-            fontSize: "10px",
-            letterSpacing: "6px",
-            color: "#9e5a1e",
-            textTransform: "uppercase",
-            marginBottom: "20px",
-            fontWeight: 600,
-          }}>PRESENTING THE</div>
-          <h1 style={{
-            fontSize: "clamp(48px, 8vw, 80px)",
-            fontWeight: 400,
-            color: "#2a2218",
-            margin: "0 0 12px",
-            lineHeight: 0.95,
-            letterSpacing: "-2px",
-            fontStyle: "italic",
-          }}>HP-35</h1>
-          <p style={{
-            fontSize: "14px",
-            letterSpacing: "4px",
-            color: "#5a4a3a",
-            textTransform: "uppercase",
-            margin: "0 0 8px",
-          }}>The Electronic Slide Rule</p>
-          <p style={{
-            fontSize: "13px",
-            color: "#8a7a6a",
-            maxWidth: "480px",
-            margin: "0 auto",
-            lineHeight: 1.7,
-          }}>
-            The world&apos;s first scientific pocket calculator. 
-            Thirty-five keys. Four-level RPN stack. Born 1972.
-          </p>
-        </section>
+    <div
+      style={{
+        fontFamily: "'TexGyreHeros', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+      }}
+    >
+      {/* Outer calculator body */}
+      <div style={{ position: "relative", width: "320px" }}>
+        {/* Main body shell */}
+        <div
+          className="hp-body-texture"
+          style={{
+            position: "relative",
+            background:
+              "linear-gradient(180deg, #6b6360 0%, #5a5552 15%, #504b48 50%, #484442 85%, #504b48 100%)",
+            borderRadius: "12px 12px 6px 6px",
+            padding: "0",
+            boxShadow:
+              "0 8px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08), inset -2px 0 0 rgba(255,255,255,0.03), inset 2px 0 0 rgba(255,255,255,0.03)",
+            clipPath: "polygon(3% 0%, 97% 0%, 100% 100%, 0% 100%)",
+            overflow: "hidden",
+          }}
+        >
+          {/* Inner bezel padding */}
+          <div style={{ padding: "16px 18px 20px" }}>
 
-        {/* Decorative divider */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "16px",
-          margin: "0 0 40px",
-        }}>
-          <div style={{ flex: 1, height: "1px", background: "#c4b8a0" }} />
-          <div style={{
-            width: "8px", height: "8px",
-            border: "1px solid #c4b8a0",
-            transform: "rotate(45deg)",
-          }} />
-          <div style={{ flex: 1, height: "1px", background: "#c4b8a0" }} />
-        </div>
-
-        {/* Calculator Section */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "40px",
-          paddingBottom: "60px",
-        }}>
-          {/* The Calculator */}
-          <div style={{
-            background: "linear-gradient(180deg, #3e3228 0%, #2a2218 100%)",
-            borderRadius: "16px",
-            padding: "24px 20px 28px",
-            width: "100%",
-            maxWidth: "360px",
-            boxShadow: `
-              0 4px 8px rgba(0,0,0,0.15),
-              0 12px 24px rgba(0,0,0,0.1),
-              0 24px 48px rgba(42,34,24,0.15)
-            `,
-            border: "1px solid #5a4a3a",
-          }}>
-            {/* Display */}
-            <div style={{
-              background: "#0a0804",
-              borderRadius: "8px",
-              padding: "4px",
-              marginBottom: "20px",
-              border: "1px solid #4a3a2a",
-            }}>
-              <div style={{
-                background: "linear-gradient(180deg, #1a0800 0%, #0d0400 100%)",
+            {/* --- LED Display --- */}
+            <div
+              style={{
+                background:
+                  "linear-gradient(180deg, #1a0800 0%, #0d0400 50%, #1a0800 100%)",
                 borderRadius: "6px",
-                padding: "14px 20px",
-                position: "relative",
-              }}>
-                {/* Amber LED display */}
+                padding: "3px",
+                marginBottom: "10px",
+                border: "2px solid #2a2018",
+                boxShadow:
+                  "inset 0 2px 8px rgba(0,0,0,0.8), inset 0 -1px 4px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              <div
+                className="hp-scanlines"
+                style={{
+                  position: "relative",
+                  background: "linear-gradient(180deg, #1a0500 0%, #0a0200 100%)",
+                  borderRadius: "4px",
+                  padding: "10px 16px",
+                  overflow: "hidden",
+                }}
+              >
+                {/* Ghost segments underneath */}
+                <div
+                  className="hp-led-ghost"
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    padding: "10px 16px",
+                    fontSize: "26px",
+                    letterSpacing: "2px",
+                    pointerEvents: "none",
+                  }}
+                >
+                  8.8.8.8.8.8.8.8.8.8.8.8.8.8.8.
+                </div>
+                {/* Active display */}
                 <div
                   data-testid="hp35-display"
                   style={{
-                  fontFamily: "'Courier New', monospace",
-                  fontSize: "30px",
-                  fontWeight: "bold",
-                  color: "#ff8c00",
-                  textShadow: "0 0 10px #ff8c00, 0 0 25px rgba(255,140,0,0.4), 0 0 50px rgba(255,140,0,0.15)",
-                  textAlign: "right",
-                  letterSpacing: "3px",
-                  minHeight: "36px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                }}
+                    fontFamily: "'DSEG7', 'Courier New', monospace",
+                    fontSize: "26px",
+                    fontWeight: "bold",
+                    color: "#ff2800",
+                    textShadow:
+                      "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
+                    textAlign: "right",
+                    letterSpacing: "2px",
+                    minHeight: "30px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    position: "relative",
+                    zIndex: 1,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                  }}
                 >
                   {display}
                 </div>
               </div>
             </div>
 
-            {/* Function Keys */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px", marginBottom: "5px" }}>
-              {funcBtn(<span>x<sup>y</sup></span>, () => operation("x^y"))}
-              {funcBtn("log", () => operation("log"))}
-              {funcBtn("ln", () => operation("ln"))}
-              {funcBtn(<span>e<sup>x</sup></span>, () => operation("e^x"))}
+            {/* --- OFF/ON switch (below display, left-aligned) --- */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "12px",
+                fontSize: "7px",
+                fontWeight: 700,
+                letterSpacing: "1.5px",
+                color: "#d0c8bc",
+                textTransform: "uppercase",
+              }}
+            >
+              <span>OFF</span>
+              {/* Toggle track */}
+              <div
+                style={{
+                  width: "32px",
+                  height: "9px",
+                  background: "linear-gradient(180deg, #333 0%, #444 100%)",
+                  borderRadius: "4px",
+                  position: "relative",
+                  boxShadow: "inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.05)",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    right: "0",
+                    top: "-2px",
+                    width: "16px",
+                    height: "13px",
+                    background: "linear-gradient(180deg, #e8e0d4 0%, #ccc4b4 100%)",
+                    borderRadius: "3px",
+                    boxShadow:
+                      "0 1px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.6)",
+                  }}
+                />
+              </div>
+              <span>ON</span>
+              {/* Red power LED */}
+              <div
+                style={{
+                  width: "5px",
+                  height: "5px",
+                  borderRadius: "50%",
+                  background:
+                    "radial-gradient(circle at 40% 35%, #ff3300 0%, #cc0000 60%, #800000 100%)",
+                  boxShadow: "0 0 4px #ff3300, 0 0 8px rgba(255,51,0,0.4)",
+                  marginLeft: "1px",
+                }}
+              />
+            </div>
+
+            {/* --- Function Keys Row 1: x^y  log  ln  e^x  CLR --- */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: "5px",
+                marginBottom: "5px",
+              }}
+            >
+              {funcBtn(xyLabel, () => operation("x^y"), "x^y")}
+              {funcBtn(<span className={lc}>log</span>, () => operation("log"), "log")}
+              {funcBtn(<span className={lc}>ln</span>, () => operation("ln"), "ln")}
+              {funcBtn(expLabel, () => operation("e^x"), "e^x")}
               {blueBtn("CLR", clear)}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px", marginBottom: "5px" }}>
-              {funcBtn("√x", () => operation("√x"))}
-              {funcBtn("arc", () => operation("arc"))}
-              {funcBtn("sin", () => operation("sin"))}
-              {funcBtn("cos", () => operation("cos"))}
-              {funcBtn("tan", () => operation("tan"))}
+            {/* --- Function Keys Row 2: sqrt(x)  arc  sin  cos  tan --- */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: "5px",
+                marginBottom: "5px",
+              }}
+            >
+              {funcBtn(sqrtLabel, () => operation("\u221Ax"), "\u221Ax")}
+              {funcBtn(<span className={lc}>arc</span>, () => operation("arc"), "arc")}
+              {funcBtn(<span className={lc}>sin</span>, () => operation("sin"), "sin")}
+              {funcBtn(<span className={lc}>cos</span>, () => operation("cos"), "cos")}
+              {funcBtn(<span className={lc}>tan</span>, () => operation("tan"), "tan")}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "5px", marginBottom: "5px" }}>
-              {funcBtn("1/x", () => operation("1/x"))}
-              {funcBtn("x↔y", () => operation("x↔y"))}
-              {funcBtn("R↓", () => {
-                setStack((prev) => ({ x: prev.y, y: prev.z, z: prev.t, t: prev.x }))
+            {/* --- Function Keys Row 3: 1/x  x⮂y  R🠟  STO  RCL --- */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: "5px",
+                marginBottom: "5px",
+              }}
+            >
+              {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
+              {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
+              {funcBtn(<span>R{"\uD83E\uDC1F"}</span>, () => {
+                setStack((prev) => ({
+                  x: prev.y,
+                  y: prev.z,
+                  z: prev.t,
+                  t: prev.x,
+                }))
                 setDisplay(updateDisplay(stack.y))
                 setEntering(false)
                 setEexActive(false)
-              })}
+              }, "R\uD83E\uDC1F")}
               {funcBtn("STO", store)}
               {funcBtn("RCL", recall)}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "5px", marginBottom: "12px" }}>
-              {blueBtn("ENTER ↑", enter, { fontSize: "12px" })}
-              {blueBtn("CHS", () => operation("CHS"))}
-              {blueBtn("EEX", () => operation("EEX"))}
-              {blueBtn("CLx", () => { setDisplay("0"); setStack(prev => ({...prev, x: 0})); setEntering(false) })}
+            {/* --- Action row: ENTER  CHS  EEX  CLx --- */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                gap: "5px",
+                marginBottom: "14px",
+              }}
+            >
+              {blueBtn(enterLabel, enter, "ENTER\uD83E\uDC6A")}
+              {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
+              {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
+              {blueBtn(clxLabel, () => {
+                setDisplay("0")
+                setStack((prev) => ({ ...prev, x: 0 }))
+                setEntering(false)
+              }, "CLx")}
             </div>
 
-            {/* Separator */}
-            <div style={{
-              height: "2px",
-              background: "linear-gradient(90deg, #5a4a3a, #8a7a6a, #5a4a3a)",
-              marginBottom: "12px",
-              borderRadius: "1px",
-            }} />
+            {/* --- Engraved separator line --- */}
+            <div
+              style={{
+                height: "1px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(255,255,255,0.06) 10%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.06) 90%, transparent)",
+                marginBottom: "2px",
+              }}
+            />
+            <div
+              style={{
+                height: "1px",
+                background:
+                  "linear-gradient(90deg, transparent, rgba(0,0,0,0.3) 10%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.3) 90%, transparent)",
+                marginBottom: "14px",
+              }}
+            />
 
-            {/* Number Pad */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "5px" }}>
-              {opBtn("−", () => operation("-"))}
+            {/* --- Number Pad --- */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4, 1fr)",
+                gap: "5px",
+              }}
+            >
+              {opBtn("\u2212", () => operation("-"))}
               {numBtn("7", () => inputDigit("7"))}
               {numBtn("8", () => inputDigit("8"))}
               {numBtn("9", () => inputDigit("9"))}
@@ -462,103 +530,92 @@ export default function HP35() {
               {numBtn("5", () => inputDigit("5"))}
               {numBtn("6", () => inputDigit("6"))}
 
-              {opBtn("×", () => operation("×"))}
+              {opBtn("\u00D7", () => operation("\u00D7"))}
               {numBtn("1", () => inputDigit("1"))}
               {numBtn("2", () => inputDigit("2"))}
               {numBtn("3", () => inputDigit("3"))}
 
-              {opBtn("÷", () => operation("÷"))}
+              {opBtn("\u00F7", () => operation("\u00F7"))}
               {numBtn("0", () => inputDigit("0"))}
               {numBtn(".", inputDecimal)}
-              {numBtn("π", () => inputDigit("π"))}
+              {numBtn(piLabel, () => inputDigit("\u03C0"), "\u03C0")}
             </div>
           </div>
 
-          {/* RPN Example */}
-          <div style={{
-            textAlign: "center",
-            color: "#8a7a6a",
-            fontSize: "13px",
-            lineHeight: 1.7,
-            maxWidth: "400px",
-          }}>
-            Example: To calculate <span style={{ fontFamily: "monospace", color: "#5a4a3a" }}>3 + 4</span>: press <span style={{ fontFamily: "monospace", color: "#5a4a3a" }}>3 ENTER 4 +</span>
-          </div>
-
-          {/* Info cards below */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "24px",
-            width: "100%",
-            maxWidth: "640px",
-          }}>
-            {[
-              { title: "RPN Logic", desc: "Four-level stack. No equals key. Think in postfix." },
-              { title: "35 Keys", desc: "Trigonometric, logarithmic, and exponential functions at your fingertips." },
-              { title: "Since 1972", desc: "The device that replaced the slide rule and changed engineering forever." },
-            ].map((card, i) => (
-              <div key={i} style={{
-                textAlign: "center",
-                padding: "20px 12px",
-                borderTop: "2px solid #c4b8a0",
-              }}>
-                <div style={{
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  letterSpacing: "3px",
-                  color: "#9e5a1e",
-                  textTransform: "uppercase",
-                  marginBottom: "8px",
-                }}>{card.title}</div>
-                <div style={{
-                  fontSize: "13px",
-                  color: "#5a4a3a",
-                  lineHeight: 1.6,
-                }}>{card.desc}</div>
+          {/* --- Bottom chin: silver bar with HP logo --- */}
+          <div
+            style={{
+              background:
+                "linear-gradient(180deg, #c8c0b4 0%, #b8b0a4 30%, #a8a094 100%)",
+              padding: "6px 20px 8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
+            }}
+          >
+            {/* HP logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  background: "linear-gradient(135deg, #1a56a8 0%, #0e3d7a 100%)",
+                  borderRadius: "2px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                }}
+              >
+                <span
+                  style={{
+                    color: "#fff",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    fontStyle: "italic",
+                    lineHeight: 1,
+                    fontFamily: "'TexGyreHeros', Helvetica, Arial, sans-serif",
+                  }}
+                >
+                  hp
+                </span>
               </div>
-            ))}
+            </div>
+            {/* HEWLETT • PACKARD wordmark — each character spread evenly */}
+            <div
+              className="flex-1 ml-3 flex justify-between items-center"
+              style={{
+                fontSize: "8px",
+                fontWeight: 400,
+                color: "#3a3632",
+                fontFamily: "'TexGyreHeros', Helvetica, Arial, sans-serif",
+              }}
+            >
+              {"HEWLETT \u2022 PACKARD".split("").map((ch, i) => (
+                <span key={i}>{ch === " " ? "\u00A0" : ch}</span>
+              ))}
+            </div>
           </div>
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer style={{
-        borderTop: "2px solid #2a2218",
-        padding: "20px 0",
-        textAlign: "center",
-      }}>
-        <div style={{
-          fontSize: "10px",
-          letterSpacing: "4px",
-          color: "#8a7a6a",
-          textTransform: "uppercase",
-        }}>
-          &quot;Something only fictional heroes like James Bond are supposed to own&quot;
-        </div>
-        <div style={{
-          fontSize: "10px",
-          color: "#b4a894",
-          marginTop: "6px",
-          letterSpacing: "2px",
-        }}>
-          — HP-35 Owner&apos;s Manual, 1972
-        </div>
-        <div style={{
-          fontSize: "9px",
-          color: "#b4a894",
-          marginTop: "16px",
-          letterSpacing: "1px",
-          maxWidth: "480px",
-          marginLeft: "auto",
-          marginRight: "auto",
-          lineHeight: 1.6,
-        }}>
-          This website is an independent fan project and is not affiliated with, endorsed by, or in any way
-          associated with Hewlett-Packard Company, HP Inc., or Hewlett Packard Enterprise. All trademarks
-          belong to their respective owners.
-        </div>
-      </footer>
+        {/* Trapezoidal shadow underneath */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            bottom: "-8px",
+            left: "5%",
+            right: "5%",
+            height: "8px",
+            background:
+              "radial-gradient(ellipse at center, rgba(0,0,0,0.25) 0%, transparent 70%)",
+            filter: "blur(4px)",
+            zIndex: -1,
+          }}
+        />
+      </div>
     </div>
   )
 }
