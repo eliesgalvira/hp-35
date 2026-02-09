@@ -1,5 +1,5 @@
-import Component from "@/components/hp-35";
+import HP35 from "@/components/hp-35";
 
 export default function Home() {
-  return <Component />
+  return <HP35 />
 }
