@@ -461,13 +461,13 @@ export default function HP35() {
 
   const swapLabel = (
     <span aria-hidden="true">
-      <span className={m}>{"\uD835\uDC65"}</span>{"\u2B82"}<span className={m}>{"\uD835\uDC66"}</span>
+      <span className={m}>{"\uD835\uDC65"}</span><span className="hp-symbol-arrow">{"\u2B82"}</span><span className={m}>{"\uD835\uDC66"}</span>
     </span>
   )
 
   const enterLabel = (
     <span className="inline-flex items-center gap-1">
-      ENTER<span className="hp-arrow-up">{"\uD83E\uDC6A"}</span>
+      ENTER<span className="hp-arrow-up hp-symbol-arrow">{"\uD83E\uDC6A"}</span>
     </span>
   )
 
@@ -687,7 +687,7 @@ export default function HP35() {
             >
               {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
               {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
-              {funcBtn(<span>R{"\uD83E\uDC1F"}</span>, () => {
+              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
                 setStack((prev) => ({
                   x: prev.y,
                   y: prev.z,

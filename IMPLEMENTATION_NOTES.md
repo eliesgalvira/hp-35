@@ -61,6 +61,30 @@ The original HP-35 prints these labels in lowercase but at the same visual heigh
 
 The ENTER arrow is 🡪 rotated with `transform: rotate(-90deg)` because there's no single Unicode codepoint that matches the exact arrow style of the original HP-35's upward-pointing enter arrow. The `.hp-arrow-up` class in globals.css handles this — it's one of the few things left in CSS because Tailwind's `rotate` utility combined with `inline-block` display is less readable.
 
+### Mobile fallback fix (2026-02)
+
+On desktop, these arrow codepoints rendered via system fallback fonts. On Android (Chrome and Firefox-based browsers), those fallback fonts did not reliably include U+1F81F/U+1F86A/U+2B82, causing missing glyphs (blank space or tofu box).
+
+To preserve the exact Unicode characters while fixing mobile rendering:
+
+- Added `@fontsource/noto-sans-symbols-2` and `@fontsource/noto-sans-symbols`.
+- Loaded symbol font CSS from `layout.tsx` imports:
+  - `@fontsource/noto-sans-symbols-2/symbols-400.css`
+  - `@fontsource/noto-sans-symbols/symbols-400.css`
+- Added `.hp-symbol-arrow` class and applied it only to the three arrow glyph spans in `hp-35.tsx`.
+
+**Why this import path matters:** Referencing `../../node_modules/...` in `globals.css` compiled locally but failed on Vercel with module resolution errors. Importing Fontsource CSS through the app entrypoint (`layout.tsx`) is bundler-safe and deploy-safe.
+
+**Weight note:** `.hp-symbol-arrow` intentionally does not force `font-weight`, so the glyphs inherit button weight and the `x⮂y` arrow keeps fuller heads/stroke like the original.
+
+This keeps the visual shape faithful to the HP-35 while removing dependency on unpredictable mobile system font fallback.
+
+Validation performed:
+
+- `pnpm test -- --run` (15/15 passing)
+- `pnpm build` (successful production build)
+- Manual browser check in local dev build confirmed all three labels still render and align on the calculator UI.
+
 ---
 
 ## Display Formatting
