@@ -166,6 +166,34 @@
   font-display: swap;
 }
 
+/* ─── HP Arrow Symbols – exact Unicode arrow glyph coverage on mobile ─── */
+@font-face {
+  font-family: "HPSymbolArrows";
+  src: url("../../node_modules/@fontsource/noto-sans-symbols-2/files/noto-sans-symbols-2-symbols-400-normal.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+1F81F, U+1F86A;
+}
+@font-face {
+  font-family: "HPSymbolArrows";
+  src: url("../../node_modules/@fontsource/noto-sans-symbols/files/noto-sans-symbols-symbols-400-normal.woff2")
+    format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2B82;
+}
+.hp-symbol-arrow {
+  font-family:
+    "HPSymbolArrows",
+    "Noto Sans Symbols 2",
+    "Noto Sans Symbols",
+    "Segoe UI Symbol",
+    sans-serif;
+}
+
 /* Rotated arrow (🡪 U+1F86A rotated to point up) */
 .hp-arrow-up {
   display: inline-block;

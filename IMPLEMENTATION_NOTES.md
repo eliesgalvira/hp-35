@@ -61,6 +61,26 @@ The original HP-35 prints these labels in lowercase but at the same visual heigh
 
 The ENTER arrow is 🡪 rotated with `transform: rotate(-90deg)` because there's no single Unicode codepoint that matches the exact arrow style of the original HP-35's upward-pointing enter arrow. The `.hp-arrow-up` class in globals.css handles this — it's one of the few things left in CSS because Tailwind's `rotate` utility combined with `inline-block` display is less readable.
 
+### Mobile fallback fix (2026-02)
+
+On desktop, these arrow codepoints rendered via system fallback fonts. On Android (Chrome and Firefox-based browsers), those fallback fonts did not reliably include U+1F81F/U+1F86A/U+2B82, causing missing glyphs (blank space or tofu box).
+
+To preserve the exact Unicode characters while fixing mobile rendering:
+
+- Added `@fontsource/noto-sans-symbols-2` and `@fontsource/noto-sans-symbols`.
+- Declared `@font-face` aliases in `globals.css` with a narrow `unicode-range`:
+  - `U+1F81F` and `U+1F86A` from Noto Sans Symbols 2
+  - `U+2B82` from Noto Sans Symbols
+- Added `.hp-symbol-arrow` class and applied it only to the three arrow glyph spans in `hp-35.tsx`.
+
+This keeps the visual shape faithful to the HP-35 while removing dependency on unpredictable mobile system font fallback.
+
+Validation performed:
+
+- `pnpm test -- --run` (15/15 passing)
+- `pnpm build` (successful production build)
+- Manual browser check in local dev build confirmed all three labels still render and align on the calculator UI.
+
 ---
 
 ## Display Formatting
