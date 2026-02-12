@@ -68,10 +68,14 @@ On desktop, these arrow codepoints rendered via system fallback fonts. On Androi
 To preserve the exact Unicode characters while fixing mobile rendering:
 
 - Added `@fontsource/noto-sans-symbols-2` and `@fontsource/noto-sans-symbols`.
-- Declared `@font-face` aliases in `globals.css` with a narrow `unicode-range`:
-  - `U+1F81F` and `U+1F86A` from Noto Sans Symbols 2
-  - `U+2B82` from Noto Sans Symbols
+- Loaded symbol font CSS from `layout.tsx` imports:
+  - `@fontsource/noto-sans-symbols-2/symbols-400.css`
+  - `@fontsource/noto-sans-symbols/symbols-400.css`
 - Added `.hp-symbol-arrow` class and applied it only to the three arrow glyph spans in `hp-35.tsx`.
+
+**Why this import path matters:** Referencing `../../node_modules/...` in `globals.css` compiled locally but failed on Vercel with module resolution errors. Importing Fontsource CSS through the app entrypoint (`layout.tsx`) is bundler-safe and deploy-safe.
+
+**Weight note:** `.hp-symbol-arrow` intentionally does not force `font-weight`, so the glyphs inherit button weight and the `x⮂y` arrow keeps fuller heads/stroke like the original.
 
 This keeps the visual shape faithful to the HP-35 while removing dependency on unpredictable mobile system font fallback.
 
