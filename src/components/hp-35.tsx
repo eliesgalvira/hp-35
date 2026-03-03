@@ -659,15 +659,17 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                   <SevenSegmentDisplay
                     display={displayState}
                     testIdPrefix="hp35-display"
-                    className="relative"
+                    className="min-h-[30px]"
                     ghostClassName="hp-led-ghost absolute inset-0 flex items-center justify-start"
                     ghostStyle={{
                       padding: "10px 16px",
                       fontSize: "19px",
+                      fontWeight: "bold",
                       letterSpacing: "1px",
+                      lineHeight: 1,
                       pointerEvents: "none",
                     }}
-                    activeClassName={improperOperationVisible ? "opacity-100" : "opacity-0"}
+                    activeClassName={improperOperationVisible ? "flex items-center justify-start opacity-100" : "flex items-center justify-start opacity-0"}
                     activeStyle={{
                       fontFamily: "'DSEG7', 'Courier New', monospace",
                       fontSize: "19px",
@@ -676,16 +678,12 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                       textShadow: "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
                       textAlign: "left",
                       letterSpacing: "1px",
+                      lineHeight: 1,
                       minHeight: "30px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
                       position: "relative",
                       zIndex: 1,
-                      whiteSpace: "nowrap",
                       overflow: "visible",
                       paddingLeft: "2px",
-                      width: "100%",
                       transition: "none",
                     }}
                   />

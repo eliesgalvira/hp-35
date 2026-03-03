@@ -56,7 +56,7 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                 className="relative flex h-10 items-center gap-3 rounded-[8px] border border-[#2d0e09]/80 bg-[#170504]/75 px-3 shadow-[inset_0_1px_2px_rgba(255,140,100,0.03),inset_0_-2px_4px_rgba(0,0,0,0.55)]"
               >
                 <span className="w-5 text-[12px] font-semibold tracking-[0.28em] text-[#7d3b30]/85">{row.label}</span>
-                <div className="relative min-w-0 flex-1">
+                <div className="relative flex h-full min-w-0 flex-1 items-center">
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
                       key={`${row.label}:${row.empty ? "empty" : `${row.display.sign}${row.display.mantissa}${row.display.exponentSign}${row.display.exponent}`}`}
@@ -82,16 +82,17 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                               filter: { duration: 0.22, times: [0, 0.33, 0.66, 1] },
                             }
                       }
-                      className="absolute inset-0"
+                      className="absolute inset-0 flex items-center"
                     >
                       <SevenSegmentDisplay
                         display={row.empty ? { sign: "", mantissa: "", showExponent: false, exponentSign: " ", exponent: "" } : row.display}
-                        className="relative"
+                        className="h-[1.05rem]"
                         ghostClassName={`hp-led-ghost absolute inset-0 flex items-center justify-start ${rowDepthClasses[index]}`}
                         ghostStyle={{
                           fontSize: "1.05rem",
                           fontWeight: 700,
                           letterSpacing: "1px",
+                          lineHeight: 1,
                           fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
                         }}
                         activeClassName={`flex items-center justify-start ${rowDepthClasses[index]}`}
@@ -100,6 +101,7 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                           fontWeight: 700,
                           color: "#ff4b2b",
                           letterSpacing: "1px",
+                          lineHeight: 1,
                           fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
                           textShadow:
                             index === 0

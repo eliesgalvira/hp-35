@@ -33,13 +33,13 @@ export function SevenSegmentDisplay({
   const normalized = normalizeLedDisplay(display)
 
   return (
-    <div className={className}>
-      <div className={ghostClassName} aria-hidden="true" style={ghostStyle}>
+    <div className={className ? `relative w-full ${className}` : "relative w-full"}>
+      <div className={ghostClassName} aria-hidden="true" style={{ width: "100%", whiteSpace: "nowrap", ...ghostStyle }}>
         <span className="hp-led-sign">8</span>
         <span className="hp-led-mantissa">{ghostDisplay.mantissa}</span>
         <span className="hp-led-exponent">{`${ghostDisplay.exponentSign}${ghostDisplay.exponent}`}</span>
       </div>
-      <div className={activeClassName} style={activeStyle}>
+      <div className={activeClassName} style={{ width: "100%", whiteSpace: "nowrap", ...activeStyle }}>
         <span className="hp-led-sign" data-testid={testIdPrefix ? `${testIdPrefix}-sign` : undefined}>
           {normalized.sign}
         </span>
