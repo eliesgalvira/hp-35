@@ -1,13 +1,17 @@
 "use client"
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import type { CommandEntry } from "@/lib/command-stack"
 
-interface RetroCommandStackProps {
-  entriesNewestFirst: CommandEntry[]
+export interface StackRegisterRow {
+  label: "X" | "Y" | "Z" | "T"
+  value: string
+  empty: boolean
 }
 
-const ROW_COUNT = 4
+interface RetroCommandStackProps {
+  rows: StackRegisterRow[]
+}
+
 const rowDepthClasses = [
   "opacity-100 blur-none",
   "opacity-75 blur-[0.15px]",
@@ -15,9 +19,8 @@ const rowDepthClasses = [
   "opacity-40 blur-[0.35px]",
 ]
 
-export function RetroCommandStack({ entriesNewestFirst }: RetroCommandStackProps) {
+export function RetroCommandStack({ rows }: RetroCommandStackProps) {
   const shouldReduceMotion = useReducedMotion()
-  const visibleEntries = entriesNewestFirst.slice(0, ROW_COUNT)
 
   return (
     <aside className="w-full max-w-[380px] shrink-0">
@@ -40,67 +43,65 @@ export function RetroCommandStack({ entriesNewestFirst }: RetroCommandStackProps
         <div className="pointer-events-none absolute inset-[1px] rounded-[12px] shadow-[inset_0_0_42px_rgba(0,0,0,0.55)]" />
 
         <div className="relative">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2">
             <span className="text-[10px] uppercase tracking-[0.42em] text-[#a15d51]/80">STACK</span>
-            <span className="text-[9px] tracking-[0.35em] text-[#6c342b]/70">01 02 03 04</span>
           </div>
 
           <div className="relative grid grid-rows-4 gap-2">
-            {Array.from({ length: ROW_COUNT }).map((_, index) => (
+            {rows.map((row, index) => (
               <div
-                key={index}
-                className="h-10 rounded-[8px] border border-[#2d0e09]/80 bg-[#170504]/75 shadow-[inset_0_1px_2px_rgba(255,140,100,0.03),inset_0_-2px_4px_rgba(0,0,0,0.55)]"
-              />
-            ))}
-
-            <div className="pointer-events-none absolute inset-0 flex flex-col gap-2">
-              <AnimatePresence initial={false}>
-                {visibleEntries.map((entry, index) => {
-                  const baseClass = rowDepthClasses[index] ?? rowDepthClasses[rowDepthClasses.length - 1]
-                  const entryGlow =
-                    index === 0
-                      ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"
-                      : "0 0 4px rgba(255,59,31,0.55), 0 0 10px rgba(255,59,31,0.18)"
-
-                  return (
+                key={row.label}
+                className="relative flex h-10 items-center gap-3 rounded-[8px] border border-[#2d0e09]/80 bg-[#170504]/75 px-3 shadow-[inset_0_1px_2px_rgba(255,140,100,0.03),inset_0_-2px_4px_rgba(0,0,0,0.55)]"
+              >
+                <span className="w-5 text-[12px] font-semibold tracking-[0.28em] text-[#7d3b30]/85">{row.label}</span>
+                <div className="relative min-w-0 flex-1">
+                  <div
+                    aria-hidden="true"
+                    className={`truncate text-[1.05rem] font-bold tracking-[0.16em] text-[#47110b] ${rowDepthClasses[index]}`}
+                    style={{ fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace" }}
+                  >
+                    8.8.8.8.8.8.8.
+                  </div>
+                  <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                      key={entry.id}
-                      layout
-                      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -10, filter: "brightness(0.8)" }}
+                      key={`${row.label}:${row.empty ? "empty" : row.value}`}
+                      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, filter: "brightness(0.78)" }}
                       animate={
-                        index === 0
-                          ? shouldReduceMotion
+                        row.empty
+                          ? { opacity: 0 }
+                          : shouldReduceMotion
                             ? { opacity: 1, y: 0 }
                             : {
-                                opacity: [0.35, 1, 0.62, 1],
+                                opacity: [0.25, 1, 0.62, 1],
                                 y: 0,
-                                filter: ["brightness(0.78)", "brightness(1.15)", "brightness(0.92)", "brightness(1)"],
+                                filter: ["brightness(0.82)", "brightness(1.18)", "brightness(0.94)", "brightness(1)"],
                               }
-                          : { opacity: 1, y: 0, filter: "brightness(1)" }
                       }
-                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, filter: "brightness(0.75)" }}
+                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, filter: "brightness(0.75)" }}
                       transition={
                         shouldReduceMotion
-                          ? { duration: 0.16 }
+                          ? { duration: 0.14 }
                           : {
-                              layout: { type: "spring", stiffness: 280, damping: 28, mass: 0.8 },
                               opacity: { duration: 0.22, times: [0, 0.33, 0.66, 1] },
-                              y: { type: "spring", stiffness: 260, damping: 26, mass: 0.8 },
+                              y: { type: "spring", stiffness: 260, damping: 24, mass: 0.7 },
                               filter: { duration: 0.22, times: [0, 0.33, 0.66, 1] },
                             }
                       }
-                      className={`flex h-10 items-center rounded-[8px] px-3 text-[1.05rem] font-bold uppercase tracking-[0.16em] text-[#ff4b2b] ${baseClass}`}
+                      className={`absolute inset-0 truncate text-[1.05rem] font-bold uppercase tracking-[0.16em] text-[#ff4b2b] ${rowDepthClasses[index]}`}
                       style={{
                         fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
-                        textShadow: entryGlow,
+                        textShadow:
+                          index === 0
+                            ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"
+                            : "0 0 4px rgba(255,59,31,0.55), 0 0 10px rgba(255,59,31,0.18)",
                       }}
                     >
-                      <span className="truncate">{entry.text}</span>
+                      {row.empty ? "" : row.value}
                     </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-            </div>
+                  </AnimatePresence>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -2,11 +2,17 @@
 
 import { useState } from "react"
 import HP35 from "@/components/hp-35"
-import { RetroCommandStack } from "@/components/retro-command-stack"
-import { applyKey, createCommandStackState } from "@/lib/command-stack"
+import { RetroCommandStack, type StackRegisterRow } from "@/components/retro-command-stack"
+
+const emptyRows: StackRegisterRow[] = [
+  { label: "X", value: "", empty: true },
+  { label: "Y", value: "", empty: true },
+  { label: "Z", value: "", empty: true },
+  { label: "T", value: "", empty: true },
+]
 
 export function HP35Experience() {
-  const [commandStack, setCommandStack] = useState(createCommandStackState)
+  const [rows, setRows] = useState<StackRegisterRow[]>(emptyRows)
 
   return (
     <div className="flex w-full flex-col items-center gap-6 md:flex-row md:items-start md:justify-center md:gap-8">
@@ -20,10 +26,10 @@ export function HP35Experience() {
             zIndex: 0,
           }}
         />
-        <HP35 onKeyPress={(key) => setCommandStack((prev) => applyKey(prev, key))} />
+        <HP35 onStackChange={setRows} />
       </div>
 
-      <RetroCommandStack entriesNewestFirst={commandStack.entriesNewestFirst} />
+      <RetroCommandStack rows={rows} />
     </div>
   )
 }

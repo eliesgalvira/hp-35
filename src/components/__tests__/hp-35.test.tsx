@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
+import type { StackRegisterRow } from "../retro-command-stack"
 
 const getDisplayParts = () => {
   const sign = screen.getByTestId("hp35-display-sign").textContent ?? ""
@@ -59,11 +60,57 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
   }
 }
 
+const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
+
 describe("HP-35 behavior", () => {
   it("starts with a zeroed display", () => {
     render(<HP35 />)
     expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
     expectFixedDisplay()
+  })
+
+  it("publishes live X/Y/Z/T register values instead of command history", async () => {
+    const user = userEvent.setup()
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    await press(user, "7")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      { label: "X", value: "7.", empty: false },
+      { label: "Y", value: "", empty: true },
+      { label: "Z", value: "", empty: true },
+      { label: "T", value: "", empty: true },
+    ])
+
+    await press(user, "ENTER🡪")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      { label: "X", value: "7.", empty: false },
+      { label: "Y", value: "7.", empty: false },
+      { label: "Z", value: "", empty: true },
+      { label: "T", value: "", empty: true },
+    ])
+
+    await press(user, "8")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      { label: "X", value: "8.", empty: false },
+      { label: "Y", value: "7.", empty: false },
+      { label: "Z", value: "", empty: true },
+      { label: "T", value: "", empty: true },
+    ])
+  })
+
+  it("updates the published stack registers for stack control operations", async () => {
+    const user = userEvent.setup()
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    await pressSequence(user, ["7", "ENTER🡪", "8", "x⮂y"])
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      { label: "X", value: "7.", empty: false },
+      { label: "Y", value: "8.", empty: false },
+      { label: "Z", value: "", empty: true },
+      { label: "T", value: "", empty: true },
+    ])
   })
 
   it("enters digits left-justified with a trailing decimal", async () => {

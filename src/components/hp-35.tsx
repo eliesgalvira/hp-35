@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type CSSProperties } from "react"
+import type { StackRegisterRow } from "@/components/retro-command-stack"
 
 interface StackState {
   x: number
@@ -10,11 +11,12 @@ interface StackState {
 }
 
 interface HP35Props {
-  onKeyPress?: (key: string) => void
+  onStackChange?: (rows: StackRegisterRow[]) => void
 }
 
-export default function HP35({ onKeyPress }: HP35Props = {}) {
+export default function HP35({ onStackChange }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
+  const [stackDepth, setStackDepth] = useState(0)
   const [improperOperation, setImproperOperation] = useState(false)
   const [improperOperationVisible, setImproperOperationVisible] = useState(true)
   const [entering, setEntering] = useState(false)
@@ -124,6 +126,14 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
     return { sign, mantissa: sci.mantissa, showExponent: true, exponentSign: sci.exponentSign, exponent: sci.exponent }
   }
 
+  const formatRegisterText = (value: number) => {
+    const formatted = formatValue(value)
+    const sign = formatted.sign === "-" ? "-" : ""
+    const mantissa = formatted.mantissa.trim()
+    if (!formatted.showExponent) return `${sign}${mantissa === "0." ? "0" : mantissa}`
+    return `${sign}${mantissa} ${formatted.exponentSign}${formatted.exponent}`
+  }
+
   const buildDisplay = () => {
     if (improperOperation) {
       return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
@@ -165,6 +175,19 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
     return () => window.clearInterval(interval)
   }, [improperOperation])
 
+  useEffect(() => {
+    if (!onStackChange) return
+    const registerValues = [stack.x, stack.y, stack.z, stack.t]
+    const labels: StackRegisterRow["label"][] = ["X", "Y", "Z", "T"]
+    onStackChange(
+      labels.map((label, index) => ({
+        label,
+        value: index < stackDepth ? formatRegisterText(registerValues[index]) : "",
+        empty: index >= stackDepth,
+      })),
+    )
+  }, [onStackChange, stack, stackDepth])
+
   const resetEntryModes = () => {
     setEntering(false)
     setEntryBuffer("")
@@ -204,9 +227,11 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
     if (!entering && stackLift) {
       pushStack(stack.x)
       setStackLift(false)
+      setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     }
     if (digit === "\u03C0") {
       setStack((prev) => ({ ...prev, x: Math.PI }))
+      setStackDepth((prev) => Math.max(prev, 1))
       setEntering(false)
       setEntryBuffer("")
       setEntryDecimalExplicit(false)
@@ -237,6 +262,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
       setStack((prev) => ({ ...prev, x: nextSign * Number.parseFloat(newBuffer) }))
       setEntering(true)
       setStackLift(false)
+      setStackDepth((prev) => Math.max(prev, 1))
       return
     }
     const digitsCount = countDigits(entryBuffer)
@@ -260,6 +286,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
       if (stackLift) {
         pushStack(stack.x)
         setStackLift(false)
+        setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
       }
       const nextSign = pendingSign ?? 1
       setEntrySign(nextSign)
@@ -268,6 +295,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
       setEntryDecimalExplicit(true)
       setEntering(true)
       setStack((prev) => ({ ...prev, x: nextSign * 0 }))
+      setStackDepth((prev) => Math.max(prev, 1))
       return
     }
     if (!entryDecimalExplicit) {
@@ -278,6 +306,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
   const enter = () => {
     if (improperOperation) return
     pushStack(stack.x)
+    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     resetEntryModes()
   }
 
@@ -294,6 +323,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "-":
@@ -305,6 +335,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u00D7":
@@ -316,6 +347,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u00F7":
@@ -331,6 +363,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "x^y":
@@ -346,6 +379,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u221Ax":
@@ -361,6 +395,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "1/x":
@@ -376,6 +411,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "sin":
@@ -396,6 +432,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "cos":
@@ -416,6 +453,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "tan":
@@ -432,6 +470,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "log":
@@ -447,6 +486,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "ln":
@@ -462,6 +502,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "e^x":
@@ -473,6 +514,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "EEX":
@@ -539,6 +581,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
   const clear = () => {
     setImproperOperation(false)
     setStack({ x: 0, y: 0, z: 0, t: 0 })
+    setStackDepth(0)
     setMemory(0)
     resetEntryModes()
   }
@@ -555,6 +598,7 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
   const recall = () => {
     if (improperOperation) return
     pushStack(memory)
+    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     setEntering(false)
     setEntryBuffer("")
     setEntryDecimalExplicit(false)
@@ -588,11 +632,6 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
       {label}
     </button>
   )
-
-  const withKeyPress = (key: string, action: () => void) => () => {
-    onKeyPress?.(key)
-    action()
-  }
 
   /* --- Math label components --- */
 
@@ -826,11 +865,11 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(xyLabel, withKeyPress("x^y", () => operation("x^y")), "x^y")}
-              {funcBtn(<span className={lc}>log</span>, withKeyPress("log", () => operation("log")), "log")}
-              {funcBtn(<span className={lc}>ln</span>, withKeyPress("ln", () => operation("ln")), "ln")}
-              {funcBtn(expLabel, withKeyPress("e^x", () => operation("e^x")), "e^x")}
-              {blueBtn("CLR", withKeyPress("CLR", clear))}
+              {funcBtn(xyLabel, () => operation("x^y"), "x^y")}
+              {funcBtn(<span className={lc}>log</span>, () => operation("log"), "log")}
+              {funcBtn(<span className={lc}>ln</span>, () => operation("ln"), "ln")}
+              {funcBtn(expLabel, () => operation("e^x"), "e^x")}
+              {blueBtn("CLR", clear)}
             </div>
 
             {/* --- Function Keys Row 2: sqrt(x)  arc  sin  cos  tan --- */}
@@ -842,11 +881,11 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(sqrtLabel, withKeyPress("\u221Ax", () => operation("\u221Ax")), "\u221Ax")}
-              {funcBtn(<span className={lc}>arc</span>, withKeyPress("arc", () => operation("arc")), "arc")}
-              {funcBtn(<span className={lc}>sin</span>, withKeyPress("sin", () => operation("sin")), "sin")}
-              {funcBtn(<span className={lc}>cos</span>, withKeyPress("cos", () => operation("cos")), "cos")}
-              {funcBtn(<span className={lc}>tan</span>, withKeyPress("tan", () => operation("tan")), "tan")}
+              {funcBtn(sqrtLabel, () => operation("\u221Ax"), "\u221Ax")}
+              {funcBtn(<span className={lc}>arc</span>, () => operation("arc"), "arc")}
+              {funcBtn(<span className={lc}>sin</span>, () => operation("sin"), "sin")}
+              {funcBtn(<span className={lc}>cos</span>, () => operation("cos"), "cos")}
+              {funcBtn(<span className={lc}>tan</span>, () => operation("tan"), "tan")}
             </div>
 
             {/* --- Function Keys Row 3: 1/x  x⮂y  R🠟  STO  RCL --- */}
@@ -858,9 +897,9 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(oneOverXLabel, withKeyPress("1/x", () => operation("1/x")), "1/x")}
-              {funcBtn(swapLabel, withKeyPress("x\u2B82y", () => operation("x\u2B82y")), "x\u2B82y")}
-              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, withKeyPress("R\uD83E\uDC1F", () => {
+              {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
+              {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
+              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
                 if (improperOperation) return
                 setStack((prev) => ({
                   x: prev.y,
@@ -877,9 +916,9 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 setEexExponentDigits("")
                 setEexMantissaText("")
                 setPendingSign(null)
-              }), "R\uD83E\uDC1F")}
-              {funcBtn("STO", withKeyPress("STO", store))}
-              {funcBtn("RCL", withKeyPress("RCL", recall))}
+              }, "R\uD83E\uDC1F")}
+              {funcBtn("STO", store)}
+              {funcBtn("RCL", recall)}
             </div>
 
             {/* --- Action row: ENTER  CHS  EEX  CLx --- */}
@@ -891,14 +930,14 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 marginBottom: "14px",
               }}
             >
-              {blueBtn(enterLabel, withKeyPress("ENTER", enter), "ENTER\uD83E\uDC6A")}
-              {blueBtn(<span>CH{"\u2009"}S</span>, withKeyPress("CHS", () => operation("CHS")), "CHS")}
-              {blueBtn(<span>E{"\u2009"}EX</span>, withKeyPress("EEX", () => operation("EEX")), "EEX")}
-              {blueBtn(clxLabel, withKeyPress("CLx", () => {
+              {blueBtn(enterLabel, enter, "ENTER\uD83E\uDC6A")}
+              {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
+              {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
+              {blueBtn(clxLabel, () => {
                 setImproperOperation(false)
                 setStack((prev) => ({ ...prev, x: 0 }))
                 resetEntryModes()
-              }), "CLx")}
+              }, "CLx")}
             </div>
 
             {/* --- Engraved separator line --- */}
@@ -927,25 +966,25 @@ export default function HP35({ onKeyPress }: HP35Props = {}) {
                 gap: "5px",
               }}
             >
-              {opBtn("\u2212", withKeyPress("-", () => operation("-")))}
-              {numBtn("7", withKeyPress("7", () => inputDigit("7")))}
-              {numBtn("8", withKeyPress("8", () => inputDigit("8")))}
-              {numBtn("9", withKeyPress("9", () => inputDigit("9")))}
+              {opBtn("\u2212", () => operation("-"))}
+              {numBtn("7", () => inputDigit("7"))}
+              {numBtn("8", () => inputDigit("8"))}
+              {numBtn("9", () => inputDigit("9"))}
 
-              {opBtn("+", withKeyPress("+", () => operation("+")))}
-              {numBtn("4", withKeyPress("4", () => inputDigit("4")))}
-              {numBtn("5", withKeyPress("5", () => inputDigit("5")))}
-              {numBtn("6", withKeyPress("6", () => inputDigit("6")))}
+              {opBtn("+", () => operation("+"))}
+              {numBtn("4", () => inputDigit("4"))}
+              {numBtn("5", () => inputDigit("5"))}
+              {numBtn("6", () => inputDigit("6"))}
 
-              {opBtn("\u00D7", withKeyPress("\u00D7", () => operation("\u00D7")))}
-              {numBtn("1", withKeyPress("1", () => inputDigit("1")))}
-              {numBtn("2", withKeyPress("2", () => inputDigit("2")))}
-              {numBtn("3", withKeyPress("3", () => inputDigit("3")))}
+              {opBtn("\u00D7", () => operation("\u00D7"))}
+              {numBtn("1", () => inputDigit("1"))}
+              {numBtn("2", () => inputDigit("2"))}
+              {numBtn("3", () => inputDigit("3"))}
 
-              {opBtn("\u00F7", withKeyPress("\u00F7", () => operation("\u00F7")))}
-              {numBtn("0", withKeyPress("0", () => inputDigit("0")))}
-              {numBtn(".", withKeyPress(".", inputDecimal))}
-              {numBtn(piLabel, withKeyPress("\u03C0", () => inputDigit("\u03C0")), "\u03C0")}
+              {opBtn("\u00F7", () => operation("\u00F7"))}
+              {numBtn("0", () => inputDigit("0"))}
+              {numBtn(".", inputDecimal)}
+              {numBtn(piLabel, () => inputDigit("\u03C0"), "\u03C0")}
             </div>
           </div>
 
