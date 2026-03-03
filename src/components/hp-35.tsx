@@ -11,7 +11,7 @@ interface StackState {
 
 export default function HP35() {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
-  const [error, setError] = useState(false)
+  const [improperOperation, setImproperOperation] = useState(false)
   const [entering, setEntering] = useState(false)
   const [entryBuffer, setEntryBuffer] = useState("")
   const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
@@ -32,6 +32,9 @@ export default function HP35() {
   const MAX_MANTISSA_DIGITS = 10
   const DISPLAY_MANTISSA_WIDTH = 11
   const DISPLAY_EXPONENT_WIDTH = 3
+  const MIN_MAGNITUDE = 1e-99
+  const MAX_MAGNITUDE = 1e100
+  const MAX_DISPLAY_VALUE = 9.999999999e99
   const MIN_FIXED = 1e-2
   const MAX_FIXED = 1e10
 
@@ -48,7 +51,6 @@ export default function HP35() {
   const normalizeSign = (value: string) => (value === "-" ? "-" : " ")
 
   const normalizeMantissa = (value: string) => {
-    if (value === "Error") return value.padEnd(DISPLAY_MANTISSA_WIDTH, " ")
     const withDecimal = value.includes(".") ? value : `${value}.`
     const trimmed =
       withDecimal.length > DISPLAY_MANTISSA_WIDTH ? withDecimal.slice(0, DISPLAY_MANTISSA_WIDTH) : withDecimal
@@ -118,8 +120,8 @@ export default function HP35() {
   }
 
   const buildDisplay = () => {
-    if (error) {
-      return { sign: "", mantissa: "Error", showExponent: false, exponentSign: " ", exponent: "" }
+    if (improperOperation) {
+      return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
     }
     if (eexActive) {
       const mantissa =
@@ -157,13 +159,8 @@ export default function HP35() {
     setArcActive(false)
   }
 
-  const clearErrorForEntry = () => {
-    if (!error) return
-    setError(false)
-  }
-
-  const showError = () => {
-    setError(true)
+  const showImproperOperation = () => {
+    setImproperOperation(true)
     resetEntryModes()
   }
 
@@ -172,8 +169,19 @@ export default function HP35() {
     setStackLift(true)
   }
 
+  const normalizeResult = (value: number) => {
+    if (Number.isNaN(value)) return { kind: "improper" as const }
+    if (!Number.isFinite(value) || Math.abs(value) >= MAX_MAGNITUDE) {
+      return { kind: "value" as const, value: value < 0 ? -MAX_DISPLAY_VALUE : MAX_DISPLAY_VALUE }
+    }
+    if (value !== 0 && Math.abs(value) < MIN_MAGNITUDE) {
+      return { kind: "value" as const, value: 0 }
+    }
+    return { kind: "value" as const, value }
+  }
+
   const inputDigit = (digit: string) => {
-    clearErrorForEntry()
+    if (improperOperation) return
     if (!entering && stackLift) {
       pushStack(stack.x)
       setStackLift(false)
@@ -227,7 +235,7 @@ export default function HP35() {
   }
 
   const inputDecimal = () => {
-    clearErrorForEntry()
+    if (improperOperation) return
     if (eexActive) return
     if (!entering) {
       if (stackLift) {
@@ -249,116 +257,147 @@ export default function HP35() {
   }
 
   const enter = () => {
-    if (error) return
+    if (improperOperation) return
     pushStack(stack.x)
     resetEntryModes()
   }
 
   const operation = (op: string) => {
-    if (error) return
+    if (improperOperation) return
     let result = stack.x
     switch (op) {
       case "+":
         result = stack.y + stack.x
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
         }
-        setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "-":
         result = stack.y - stack.x
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
         }
-        setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u00D7":
         result = stack.y * stack.x
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
         }
-        setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u00F7":
         if (stack.x === 0) {
-          showError()
+          showImproperOperation()
           return
         }
         result = stack.y / stack.x
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
         }
-        setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "x^y":
-        result = Math.pow(stack.x, stack.y)
-        if (!Number.isFinite(result)) {
-          showError()
+        if (stack.x <= 0) {
+          showImproperOperation()
           return
         }
-        setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
+        result = Math.pow(stack.x, stack.y)
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+        }
         break
       case "\u221Ax":
         if (stack.x < 0) {
-          showError()
+          showImproperOperation()
           return
         }
         result = Math.sqrt(stack.x)
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value }))
         }
-        setStack((prev) => ({ ...prev, x: result }))
         break
       case "1/x":
         if (stack.x === 0) {
-          showError()
+          showImproperOperation()
           return
         }
         result = 1 / stack.x
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value }))
         }
-        setStack((prev) => ({ ...prev, x: result }))
         break
       case "sin":
         if (arcActive) {
           if (stack.x < -1 || stack.x > 1) {
-            showError()
+            showImproperOperation()
             return
           }
           result = (Math.asin(stack.x) * 180) / Math.PI
         } else {
           result = Math.sin((stack.x * Math.PI) / 180)
         }
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setArcActive(false)
+          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
         }
-        setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "cos":
         if (arcActive) {
           if (stack.x < -1 || stack.x > 1) {
-            showError()
+            showImproperOperation()
             return
           }
           result = (Math.acos(stack.x) * 180) / Math.PI
         } else {
           result = Math.cos((stack.x * Math.PI) / 180)
         }
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setArcActive(false)
+          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
         }
-        setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "tan":
         if (arcActive) {
@@ -366,44 +405,56 @@ export default function HP35() {
         } else {
           result = Math.tan((stack.x * Math.PI) / 180)
         }
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setArcActive(false)
+          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
         }
-        setArcActive(false)
-        setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "log":
         if (stack.x <= 0) {
-          showError()
+          showImproperOperation()
           return
         }
         result = Math.log10(stack.x)
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value }))
         }
-        setStack((prev) => ({ ...prev, x: result }))
         break
       case "ln":
         if (stack.x <= 0) {
-          showError()
+          showImproperOperation()
           return
         }
         result = Math.log(stack.x)
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value }))
         }
-        setStack((prev) => ({ ...prev, x: result }))
         break
       case "e^x":
         result = Math.exp(stack.x)
-        if (!Number.isFinite(result)) {
-          showError()
-          return
+        {
+          const normalized = normalizeResult(result)
+          if (normalized.kind === "improper") {
+            showImproperOperation()
+            return
+          }
+          setStack((prev) => ({ ...prev, x: normalized.value }))
         }
-        setStack((prev) => ({ ...prev, x: result }))
         break
       case "EEX":
         if (eexActive) return
@@ -467,14 +518,14 @@ export default function HP35() {
   }
 
   const clear = () => {
-    setError(false)
+    setImproperOperation(false)
     setStack({ x: 0, y: 0, z: 0, t: 0 })
     setMemory(0)
     resetEntryModes()
   }
 
   const store = () => {
-    if (error) return
+    if (improperOperation) return
     setMemory(stack.x)
     setEntering(false)
     setEntryBuffer("")
@@ -483,7 +534,7 @@ export default function HP35() {
     setStackLift(false)
   }
   const recall = () => {
-    if (error) return
+    if (improperOperation) return
     pushStack(memory)
     setEntering(false)
     setEntryBuffer("")
@@ -782,7 +833,7 @@ export default function HP35() {
               {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
               {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
               {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
-                if (error) return
+                if (improperOperation) return
                 setStack((prev) => ({
                   x: prev.y,
                   y: prev.z,
@@ -816,7 +867,7 @@ export default function HP35() {
               {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
               {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
               {blueBtn(clxLabel, () => {
-                setError(false)
+                setImproperOperation(false)
                 setStack((prev) => ({ ...prev, x: 0 }))
                 resetEntryModes()
               }, "CLx")}
