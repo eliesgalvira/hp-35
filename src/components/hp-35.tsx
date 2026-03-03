@@ -9,7 +9,11 @@ interface StackState {
   t: number
 }
 
-export default function HP35() {
+interface HP35Props {
+  onKeyPress?: (key: string) => void
+}
+
+export default function HP35({ onKeyPress }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
   const [improperOperation, setImproperOperation] = useState(false)
   const [improperOperationVisible, setImproperOperationVisible] = useState(true)
@@ -585,6 +589,11 @@ export default function HP35() {
     </button>
   )
 
+  const withKeyPress = (key: string, action: () => void) => () => {
+    onKeyPress?.(key)
+    action()
+  }
+
   /* --- Math label components --- */
 
   const m = "font-['STIXTwoMath','Times_New_Roman',serif] text-[1.45em] leading-none"
@@ -817,11 +826,11 @@ export default function HP35() {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(xyLabel, () => operation("x^y"), "x^y")}
-              {funcBtn(<span className={lc}>log</span>, () => operation("log"), "log")}
-              {funcBtn(<span className={lc}>ln</span>, () => operation("ln"), "ln")}
-              {funcBtn(expLabel, () => operation("e^x"), "e^x")}
-              {blueBtn("CLR", clear)}
+              {funcBtn(xyLabel, withKeyPress("x^y", () => operation("x^y")), "x^y")}
+              {funcBtn(<span className={lc}>log</span>, withKeyPress("log", () => operation("log")), "log")}
+              {funcBtn(<span className={lc}>ln</span>, withKeyPress("ln", () => operation("ln")), "ln")}
+              {funcBtn(expLabel, withKeyPress("e^x", () => operation("e^x")), "e^x")}
+              {blueBtn("CLR", withKeyPress("CLR", clear))}
             </div>
 
             {/* --- Function Keys Row 2: sqrt(x)  arc  sin  cos  tan --- */}
@@ -833,11 +842,11 @@ export default function HP35() {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(sqrtLabel, () => operation("\u221Ax"), "\u221Ax")}
-              {funcBtn(<span className={lc}>arc</span>, () => operation("arc"), "arc")}
-              {funcBtn(<span className={lc}>sin</span>, () => operation("sin"), "sin")}
-              {funcBtn(<span className={lc}>cos</span>, () => operation("cos"), "cos")}
-              {funcBtn(<span className={lc}>tan</span>, () => operation("tan"), "tan")}
+              {funcBtn(sqrtLabel, withKeyPress("\u221Ax", () => operation("\u221Ax")), "\u221Ax")}
+              {funcBtn(<span className={lc}>arc</span>, withKeyPress("arc", () => operation("arc")), "arc")}
+              {funcBtn(<span className={lc}>sin</span>, withKeyPress("sin", () => operation("sin")), "sin")}
+              {funcBtn(<span className={lc}>cos</span>, withKeyPress("cos", () => operation("cos")), "cos")}
+              {funcBtn(<span className={lc}>tan</span>, withKeyPress("tan", () => operation("tan")), "tan")}
             </div>
 
             {/* --- Function Keys Row 3: 1/x  x⮂y  R🠟  STO  RCL --- */}
@@ -849,9 +858,9 @@ export default function HP35() {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
-              {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
-              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
+              {funcBtn(oneOverXLabel, withKeyPress("1/x", () => operation("1/x")), "1/x")}
+              {funcBtn(swapLabel, withKeyPress("x\u2B82y", () => operation("x\u2B82y")), "x\u2B82y")}
+              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, withKeyPress("R\uD83E\uDC1F", () => {
                 if (improperOperation) return
                 setStack((prev) => ({
                   x: prev.y,
@@ -868,9 +877,9 @@ export default function HP35() {
                 setEexExponentDigits("")
                 setEexMantissaText("")
                 setPendingSign(null)
-              }, "R\uD83E\uDC1F")}
-              {funcBtn("STO", store)}
-              {funcBtn("RCL", recall)}
+              }), "R\uD83E\uDC1F")}
+              {funcBtn("STO", withKeyPress("STO", store))}
+              {funcBtn("RCL", withKeyPress("RCL", recall))}
             </div>
 
             {/* --- Action row: ENTER  CHS  EEX  CLx --- */}
@@ -882,14 +891,14 @@ export default function HP35() {
                 marginBottom: "14px",
               }}
             >
-              {blueBtn(enterLabel, enter, "ENTER\uD83E\uDC6A")}
-              {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
-              {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
-              {blueBtn(clxLabel, () => {
+              {blueBtn(enterLabel, withKeyPress("ENTER", enter), "ENTER\uD83E\uDC6A")}
+              {blueBtn(<span>CH{"\u2009"}S</span>, withKeyPress("CHS", () => operation("CHS")), "CHS")}
+              {blueBtn(<span>E{"\u2009"}EX</span>, withKeyPress("EEX", () => operation("EEX")), "EEX")}
+              {blueBtn(clxLabel, withKeyPress("CLx", () => {
                 setImproperOperation(false)
                 setStack((prev) => ({ ...prev, x: 0 }))
                 resetEntryModes()
-              }, "CLx")}
+              }), "CLx")}
             </div>
 
             {/* --- Engraved separator line --- */}
@@ -918,25 +927,25 @@ export default function HP35() {
                 gap: "5px",
               }}
             >
-              {opBtn("\u2212", () => operation("-"))}
-              {numBtn("7", () => inputDigit("7"))}
-              {numBtn("8", () => inputDigit("8"))}
-              {numBtn("9", () => inputDigit("9"))}
+              {opBtn("\u2212", withKeyPress("-", () => operation("-")))}
+              {numBtn("7", withKeyPress("7", () => inputDigit("7")))}
+              {numBtn("8", withKeyPress("8", () => inputDigit("8")))}
+              {numBtn("9", withKeyPress("9", () => inputDigit("9")))}
 
-              {opBtn("+", () => operation("+"))}
-              {numBtn("4", () => inputDigit("4"))}
-              {numBtn("5", () => inputDigit("5"))}
-              {numBtn("6", () => inputDigit("6"))}
+              {opBtn("+", withKeyPress("+", () => operation("+")))}
+              {numBtn("4", withKeyPress("4", () => inputDigit("4")))}
+              {numBtn("5", withKeyPress("5", () => inputDigit("5")))}
+              {numBtn("6", withKeyPress("6", () => inputDigit("6")))}
 
-              {opBtn("\u00D7", () => operation("\u00D7"))}
-              {numBtn("1", () => inputDigit("1"))}
-              {numBtn("2", () => inputDigit("2"))}
-              {numBtn("3", () => inputDigit("3"))}
+              {opBtn("\u00D7", withKeyPress("\u00D7", () => operation("\u00D7")))}
+              {numBtn("1", withKeyPress("1", () => inputDigit("1")))}
+              {numBtn("2", withKeyPress("2", () => inputDigit("2")))}
+              {numBtn("3", withKeyPress("3", () => inputDigit("3")))}
 
-              {opBtn("\u00F7", () => operation("\u00F7"))}
-              {numBtn("0", () => inputDigit("0"))}
-              {numBtn(".", inputDecimal)}
-              {numBtn(piLabel, () => inputDigit("\u03C0"), "\u03C0")}
+              {opBtn("\u00F7", withKeyPress("\u00F7", () => operation("\u00F7")))}
+              {numBtn("0", withKeyPress("0", () => inputDigit("0")))}
+              {numBtn(".", withKeyPress(".", inputDecimal))}
+              {numBtn(piLabel, withKeyPress("\u03C0", () => inputDigit("\u03C0")), "\u03C0")}
             </div>
           </div>
 

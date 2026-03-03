@@ -1,4 +1,4 @@
-import HP35 from "@/components/hp-35"
+import { HP35Experience } from "@/components/hp-35-experience"
 
 export default function Home() {
   return (
@@ -90,21 +90,7 @@ export default function Home() {
             </p>
           </header>
 
-          {/* Calculator */}
-          <div className="relative">
-            {/* Desk shadow under calculator */}
-            <div
-              className="absolute left-[8%] right-[8%] h-6"
-              style={{
-                bottom: "-14px",
-                background:
-                  "radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, transparent 70%)",
-                filter: "blur(10px)",
-                zIndex: 0,
-              }}
-            />
-            <HP35 />
-          </div>
+          <HP35Experience />
 
           {/* Usage guide — directly below calculator */}
           <div className="text-center mt-3 mb-3">
