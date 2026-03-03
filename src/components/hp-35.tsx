@@ -698,6 +698,8 @@ export default function HP35() {
                 {/* Active display */}
                 <div
                   data-testid="hp35-display"
+                  data-improper-operation={improperOperation ? "true" : "false"}
+                  className={improperOperation ? "hp-improper-operation" : undefined}
                   style={{
                     fontFamily: "'DSEG7', 'Courier New', monospace",
                     fontSize: "19px",

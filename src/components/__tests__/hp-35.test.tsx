@@ -41,6 +41,10 @@ const expectFixedDisplay = () => {
 
 const expectImproperOperationDisplay = () => expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
 
+const expectImproperOperationBlinking = (expected: boolean) => {
+  expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation", expected ? "true" : "false")
+}
+
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(screen.getByRole("button", { name: label }))
 }
@@ -222,12 +226,15 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["3", "ENTER🡪", "0", "÷"])
     expectImproperOperationDisplay()
+    expectImproperOperationBlinking(true)
 
     await press(user, "7")
     expectImproperOperationDisplay()
+    expectImproperOperationBlinking(true)
 
     await pressSequence(user, ["CLx", "7"])
     expectDisplay({ sign: " ", mantissa: "7." })
+    expectImproperOperationBlinking(false)
   })
 
   it("latches improper operation for 0 divided by 0", async () => {
