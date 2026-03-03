@@ -49,7 +49,6 @@ const expectImproperOperationBlinking = (expected: boolean) => {
 const expectImproperOperationVisible = (expected: boolean) => {
   expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation-visible", expected ? "true" : "false")
 }
-
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(screen.getByRole("button", { name: label }))
 }
