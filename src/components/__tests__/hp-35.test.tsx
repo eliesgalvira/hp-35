@@ -39,6 +39,13 @@ const expectFixedDisplay = () => {
   expect(sign.length + mantissa.length + exponent.length).toBe(15)
 }
 
+const expectErrorDisplay = () => {
+  const { sign, mantissa, exponent } = getDisplayParts()
+  expect(sign).toBe(" ")
+  expect(mantissa.trimEnd()).toBe("Error")
+  expect(exponent.trimEnd()).toBe("")
+}
+
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(screen.getByRole("button", { name: label }))
 }
@@ -212,5 +219,100 @@ describe("HP-35 behavior", () => {
 
     await press(user, "R🠟")
     expect(displayNumber()).toBeCloseTo(0.1, 6)
+  })
+
+  it("shows an error for divide by zero and clears on new entry", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["3", "ENTER🡪", "0", "÷"])
+    expectErrorDisplay()
+
+    await press(user, "7")
+    expectDisplay({ sign: " ", mantissa: "7." })
+  })
+
+  it("shows an error for 0 divided by 0", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["0", "ENTER🡪", "0", "÷"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for reciprocal of zero and clears with CLx", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["0", "1/x"])
+    expectErrorDisplay()
+
+    await press(user, "CLx")
+    expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
+  })
+
+  it("shows an error for square root of a negative number", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["9", "CHS", "√x"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for log of zero", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["0", "log"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for natural log of a negative number", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["2", "CHS", "ln"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for arc-sine outside the unit interval", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["2", "arc", "sin"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for arc-cosine outside the unit interval", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["2", "CHS", "arc", "cos"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for e^x overflow", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["1", "EEX", "9", "9", "e^x"])
+    expectErrorDisplay()
+  })
+
+  it("shows an error for x^y overflow", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["9", "ENTER🡪", "9", "EEX", "9", "9", "x^y"])
+    expectErrorDisplay()
+  })
+
+  it("keeps finite but large trig results representable instead of erroring", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, ["9", "0", "tan"])
+    expect(displayNumber()).toBeGreaterThan(1e10)
+    expect(getDisplayParts().mantissa.trimEnd()).not.toBe("Error")
   })
 })

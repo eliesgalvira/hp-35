@@ -11,6 +11,7 @@ interface StackState {
 
 export default function HP35() {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
+  const [error, setError] = useState(false)
   const [entering, setEntering] = useState(false)
   const [entryBuffer, setEntryBuffer] = useState("")
   const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
@@ -47,6 +48,7 @@ export default function HP35() {
   const normalizeSign = (value: string) => (value === "-" ? "-" : " ")
 
   const normalizeMantissa = (value: string) => {
+    if (value === "Error") return value.padEnd(DISPLAY_MANTISSA_WIDTH, " ")
     const withDecimal = value.includes(".") ? value : `${value}.`
     const trimmed =
       withDecimal.length > DISPLAY_MANTISSA_WIDTH ? withDecimal.slice(0, DISPLAY_MANTISSA_WIDTH) : withDecimal
@@ -116,6 +118,9 @@ export default function HP35() {
   }
 
   const buildDisplay = () => {
+    if (error) {
+      return { sign: "", mantissa: "Error", showExponent: false, exponentSign: " ", exponent: "" }
+    }
     if (eexActive) {
       const mantissa =
         eexMantissaText !== "" ? eexMantissaText : formatValue(eexMantissaSign * eexMantissa).mantissa
@@ -139,7 +144,36 @@ export default function HP35() {
     setStack((prev) => ({ t: prev.z, z: prev.y, y: prev.x, x: newX }))
   }
 
+  const resetEntryModes = () => {
+    setEntering(false)
+    setEntryBuffer("")
+    setEntryDecimalExplicit(false)
+    setEntrySign(1)
+    setPendingSign(null)
+    setStackLift(false)
+    setEexActive(false)
+    setEexExponentDigits("")
+    setEexMantissaText("")
+    setArcActive(false)
+  }
+
+  const clearErrorForEntry = () => {
+    if (!error) return
+    setError(false)
+  }
+
+  const showError = () => {
+    setError(true)
+    resetEntryModes()
+  }
+
+  const finishOperation = () => {
+    resetEntryModes()
+    setStackLift(true)
+  }
+
   const inputDigit = (digit: string) => {
+    clearErrorForEntry()
     if (!entering && stackLift) {
       pushStack(stack.x)
       setStackLift(false)
@@ -193,6 +227,7 @@ export default function HP35() {
   }
 
   const inputDecimal = () => {
+    clearErrorForEntry()
     if (eexActive) return
     if (!entering) {
       if (stackLift) {
@@ -214,64 +249,113 @@ export default function HP35() {
   }
 
   const enter = () => {
+    if (error) return
     pushStack(stack.x)
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setEntrySign(1)
-    setPendingSign(null)
-    setStackLift(false)
-    setEexActive(false)
-    setEexExponentDigits("")
-    setEexMantissaText("")
-    setArcActive(false)
+    resetEntryModes()
   }
 
   const operation = (op: string) => {
+    if (error) return
     let result = stack.x
     switch (op) {
       case "+":
         result = stack.y + stack.x
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "-":
         result = stack.y - stack.x
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u00D7":
         result = stack.y * stack.x
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u00F7":
+        if (stack.x === 0) {
+          showError()
+          return
+        }
         result = stack.y / stack.x
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "x^y":
         result = Math.pow(stack.x, stack.y)
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result, y: prev.z, z: prev.t, t: 0 }))
         break
       case "\u221Ax":
+        if (stack.x < 0) {
+          showError()
+          return
+        }
         result = Math.sqrt(stack.x)
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "1/x":
+        if (stack.x === 0) {
+          showError()
+          return
+        }
         result = 1 / stack.x
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "sin":
         if (arcActive) {
+          if (stack.x < -1 || stack.x > 1) {
+            showError()
+            return
+          }
           result = (Math.asin(stack.x) * 180) / Math.PI
         } else {
           result = Math.sin((stack.x * Math.PI) / 180)
+        }
+        if (!Number.isFinite(result)) {
+          showError()
+          return
         }
         setArcActive(false)
         setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "cos":
         if (arcActive) {
+          if (stack.x < -1 || stack.x > 1) {
+            showError()
+            return
+          }
           result = (Math.acos(stack.x) * 180) / Math.PI
         } else {
           result = Math.cos((stack.x * Math.PI) / 180)
+        }
+        if (!Number.isFinite(result)) {
+          showError()
+          return
         }
         setArcActive(false)
         setStack((prev) => ({ ...prev, x: result, t: prev.z }))
@@ -282,19 +366,43 @@ export default function HP35() {
         } else {
           result = Math.tan((stack.x * Math.PI) / 180)
         }
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setArcActive(false)
         setStack((prev) => ({ ...prev, x: result, t: prev.z }))
         break
       case "log":
+        if (stack.x <= 0) {
+          showError()
+          return
+        }
         result = Math.log10(stack.x)
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "ln":
+        if (stack.x <= 0) {
+          showError()
+          return
+        }
         result = Math.log(stack.x)
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "e^x":
         result = Math.exp(stack.x)
+        if (!Number.isFinite(result)) {
+          showError()
+          return
+        }
         setStack((prev) => ({ ...prev, x: result }))
         break
       case "EEX":
@@ -355,33 +463,18 @@ export default function HP35() {
         setEexMantissaText("")
         return
     }
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setPendingSign(null)
-    setStackLift(true)
-    setEexActive(false)
-    setEexExponentDigits("")
-    setEexMantissaText("")
-    setArcActive(false)
+    finishOperation()
   }
 
   const clear = () => {
+    setError(false)
     setStack({ x: 0, y: 0, z: 0, t: 0 })
     setMemory(0)
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setEntrySign(1)
-    setPendingSign(null)
-    setStackLift(false)
-    setEexActive(false)
-    setEexExponentDigits("")
-    setEexMantissaText("")
-    setArcActive(false)
+    resetEntryModes()
   }
 
   const store = () => {
+    if (error) return
     setMemory(stack.x)
     setEntering(false)
     setEntryBuffer("")
@@ -390,6 +483,7 @@ export default function HP35() {
     setStackLift(false)
   }
   const recall = () => {
+    if (error) return
     pushStack(memory)
     setEntering(false)
     setEntryBuffer("")
@@ -688,6 +782,7 @@ export default function HP35() {
               {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
               {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
               {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
+                if (error) return
                 setStack((prev) => ({
                   x: prev.y,
                   y: prev.z,
@@ -721,17 +816,9 @@ export default function HP35() {
               {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
               {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
               {blueBtn(clxLabel, () => {
+                setError(false)
                 setStack((prev) => ({ ...prev, x: 0 }))
-                setEntering(false)
-                setEntryBuffer("")
-                setEntryDecimalExplicit(false)
-                setEntrySign(1)
-                setPendingSign(null)
-                setStackLift(false)
-                setEexActive(false)
-                setEexExponentDigits("")
-                setEexMantissaText("")
-                setArcActive(false)
+                resetEntryModes()
               }, "CLx")}
             </div>
 
