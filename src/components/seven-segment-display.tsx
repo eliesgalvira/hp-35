@@ -15,13 +15,14 @@ interface SevenSegmentDisplayProps {
   testIdPrefix?: string
 }
 
-const ghostDisplay = normalizeLedDisplay({
-  sign: "8",
-  mantissa: "88888888888",
-  showExponent: true,
-  exponentSign: "8",
-  exponent: "888",
-})
+const toGhostChar = (char: string) => (char === "." ? "." : "8")
+
+const renderSlots = (value: string) =>
+  value.split("").map((char, index) => (
+    <span key={`${index}:${char}`} className="inline-block w-[1ch] text-center">
+      {char}
+    </span>
+  ))
 
 export function SevenSegmentDisplay({
   display,
@@ -35,6 +36,18 @@ export function SevenSegmentDisplay({
   testIdPrefix,
 }: SevenSegmentDisplayProps) {
   const normalized = normalizeLedDisplay(display)
+  const exponentText = normalized.showExponent
+    ? `${normalized.exponentSign}${normalized.exponent}`
+    : " ".repeat(DISPLAY_EXPONENT_WIDTH)
+  const ghostSign = toGhostChar(normalized.sign)
+  const ghostMantissa = normalized.mantissa
+    .split("")
+    .map((char) => toGhostChar(char))
+    .join("")
+  const ghostExponent = exponentText
+    .split("")
+    .map((char) => toGhostChar(char))
+    .join("")
 
   return (
     <div className={className ? `relative w-full ${className}` : "relative w-full"}>
@@ -43,24 +56,22 @@ export function SevenSegmentDisplay({
         aria-hidden="true"
         style={{ width: "100%", whiteSpace: "nowrap", ...sharedStyle, ...ghostStyle }}
       >
-        <span className="hp-led-sign">8</span>
-        <span className="hp-led-mantissa">{ghostDisplay.mantissa}</span>
-        <span className="hp-led-exponent">{`${ghostDisplay.exponentSign}${ghostDisplay.exponent}`}</span>
+        <span className="hp-led-sign">{renderSlots(ghostSign)}</span>
+        <span className="hp-led-mantissa">{renderSlots(ghostMantissa)}</span>
+        <span className="hp-led-exponent">{renderSlots(ghostExponent)}</span>
       </div>
       <div
         className={sharedClassName ? `${sharedClassName} ${activeClassName ?? ""}`.trim() : activeClassName}
         style={{ width: "100%", whiteSpace: "nowrap", ...sharedStyle, ...activeStyle }}
       >
         <span className="hp-led-sign" data-testid={testIdPrefix ? `${testIdPrefix}-sign` : undefined}>
-          {normalized.sign}
+          {renderSlots(normalized.sign)}
         </span>
         <span className="hp-led-mantissa" data-testid={testIdPrefix ? `${testIdPrefix}-mantissa` : undefined}>
-          {normalized.mantissa}
+          {renderSlots(normalized.mantissa)}
         </span>
         <span className="hp-led-exponent" data-testid={testIdPrefix ? `${testIdPrefix}-exponent` : undefined}>
-          {normalized.showExponent
-            ? `${normalized.exponentSign}${normalized.exponent}`
-            : " ".repeat(DISPLAY_EXPONENT_WIDTH)}
+          {renderSlots(exponentText)}
         </span>
       </div>
     </div>
