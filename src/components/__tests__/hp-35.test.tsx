@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
+import type { StackRegisterRow } from "../retro-command-stack"
 
 const getDisplayParts = () => {
   const sign = screen.getByTestId("hp35-display-sign").textContent ?? ""
@@ -41,6 +42,14 @@ const expectFixedDisplay = () => {
 
 const expectImproperOperationDisplay = () => expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
 
+const expectImproperOperationBlinking = (expected: boolean) => {
+  expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation", expected ? "true" : "false")
+}
+
+const expectImproperOperationVisible = (expected: boolean) => {
+  expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation-visible", expected ? "true" : "false")
+}
+
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
   await user.click(screen.getByRole("button", { name: label }))
 }
@@ -51,11 +60,71 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
   }
 }
 
+const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
+
+const makeRow = (
+  label: StackRegisterRow["label"],
+  mantissa: string,
+  empty: boolean,
+  sign = "",
+  showExponent = false,
+  exponentSign = " ",
+  exponent = "",
+): StackRegisterRow => ({
+  label,
+  display: { sign, mantissa, showExponent, exponentSign, exponent },
+  empty,
+})
+
 describe("HP-35 behavior", () => {
   it("starts with a zeroed display", () => {
     render(<HP35 />)
     expectDisplay({ sign: " ", mantissa: "0.", exponent: "" })
     expectFixedDisplay()
+  })
+
+  it("publishes live X/Y/Z/T register values instead of command history", async () => {
+    const user = userEvent.setup()
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    await press(user, "7")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      makeRow("X", "7.", false),
+      makeRow("Y", "0.", true),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
+    ])
+
+    await press(user, "ENTER🡪")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      makeRow("X", "7.", false),
+      makeRow("Y", "7.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
+    ])
+
+    await press(user, "8")
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      makeRow("X", "8.", false),
+      makeRow("Y", "7.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
+    ])
+  })
+
+  it("updates the published stack registers for stack control operations", async () => {
+    const user = userEvent.setup()
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    await pressSequence(user, ["7", "ENTER🡪", "8", "x⮂y"])
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      makeRow("X", "7.", false),
+      makeRow("Y", "8.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
+    ])
   })
 
   it("enters digits left-justified with a trailing decimal", async () => {
@@ -222,12 +291,42 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["3", "ENTER🡪", "0", "÷"])
     expectImproperOperationDisplay()
+    expectImproperOperationBlinking(true)
+    expectImproperOperationVisible(true)
 
     await press(user, "7")
     expectImproperOperationDisplay()
+    expectImproperOperationBlinking(true)
 
     await pressSequence(user, ["CLx", "7"])
     expectDisplay({ sign: " ", mantissa: "7." })
+    expectImproperOperationBlinking(false)
+    expectImproperOperationVisible(true)
+  })
+
+  it("toggles the display visibility while improper operation is latched", async () => {
+    vi.useFakeTimers()
+    try {
+      render(<HP35 />)
+
+      fireEvent.mouseDown(screen.getByRole("button", { name: "3" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "ENTER🡪" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "0" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "÷" }))
+      expectImproperOperationVisible(true)
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expectImproperOperationVisible(false)
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expectImproperOperationVisible(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("latches improper operation for 0 divided by 0", async () => {

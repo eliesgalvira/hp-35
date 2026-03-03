@@ -1,6 +1,9 @@
 "use client"
 
-import { useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
+import type { StackRegisterRow } from "./retro-command-stack"
+import { SevenSegmentDisplay } from "./seven-segment-display"
+import { formatNumberToLedDisplay, type LedDisplayParts } from "../lib/hp-led-display"
 
 interface StackState {
   x: number
@@ -9,9 +12,15 @@ interface StackState {
   t: number
 }
 
-export default function HP35() {
+interface HP35Props {
+  onStackChange?: (rows: StackRegisterRow[]) => void
+}
+
+export default function HP35({ onStackChange }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
+  const [stackDepth, setStackDepth] = useState(0)
   const [improperOperation, setImproperOperation] = useState(false)
+  const [improperOperationVisible, setImproperOperationVisible] = useState(true)
   const [entering, setEntering] = useState(false)
   const [entryBuffer, setEntryBuffer] = useState("")
   const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
@@ -30,94 +39,11 @@ export default function HP35() {
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
   const MAX_MANTISSA_DIGITS = 10
-  const DISPLAY_MANTISSA_WIDTH = 11
-  const DISPLAY_EXPONENT_WIDTH = 3
   const MIN_MAGNITUDE = 1e-99
   const MAX_MAGNITUDE = 1e100
   const MAX_DISPLAY_VALUE = 9.999999999e99
-  const MIN_FIXED = 1e-2
-  const MAX_FIXED = 1e10
 
   const countDigits = (value: string) => value.replace(".", "").length
-
-  const trimTrailingZeros = (value: string) => {
-    if (!value.includes(".")) return `${value}.`
-    const [intPart, fracPart = ""] = value.split(".")
-    const trimmedFrac = fracPart.replace(/0+$/, "")
-    if (trimmedFrac.length === 0) return `${intPart}.`
-    return `${intPart}.${trimmedFrac}`
-  }
-
-  const normalizeSign = (value: string) => (value === "-" ? "-" : " ")
-
-  const normalizeMantissa = (value: string) => {
-    const withDecimal = value.includes(".") ? value : `${value}.`
-    const trimmed =
-      withDecimal.length > DISPLAY_MANTISSA_WIDTH ? withDecimal.slice(0, DISPLAY_MANTISSA_WIDTH) : withDecimal
-    return trimmed.padEnd(DISPLAY_MANTISSA_WIDTH, " ")
-  }
-
-  const normalizeExponentDigits = (value: string) => value.padStart(2, "0").slice(-2)
-
-  const normalizeDisplay = (parts: {
-    sign: string
-    mantissa: string
-    showExponent: boolean
-    exponentSign: string
-    exponent: string
-  }) => {
-    const base = {
-      ...parts,
-      sign: normalizeSign(parts.sign),
-      mantissa: normalizeMantissa(parts.mantissa),
-    }
-    if (!parts.showExponent) {
-      return { ...base, exponentSign: " ", exponent: "" }
-    }
-    return {
-      ...base,
-      exponentSign: normalizeSign(parts.exponentSign),
-      exponent: normalizeExponentDigits(parts.exponent),
-    }
-  }
-
-  const formatFixed = (value: number) => {
-    const abs = Math.abs(value)
-    const digitsBefore = abs >= 1 ? Math.floor(Math.log10(abs)) + 1 : 1
-    const decimals = Math.max(0, MAX_MANTISSA_DIGITS - digitsBefore)
-    const raw = abs.toFixed(decimals)
-    const trimmed = trimTrailingZeros(raw)
-    if (abs > 0 && abs < 1) return trimmed.replace(/^0/, "")
-    return trimmed
-  }
-
-  const formatScientific = (value: number) => {
-    const abs = Math.abs(value)
-    let exp = Math.floor(Math.log10(abs))
-    let mantissa = abs / Math.pow(10, exp)
-    let mantissaRounded = Number(mantissa.toFixed(9))
-    if (mantissaRounded >= 10) {
-      mantissaRounded /= 10
-      exp += 1
-    }
-    const mantissaStr = trimTrailingZeros(mantissaRounded.toFixed(9))
-    const exponentSign = exp >= 0 ? " " : "-"
-    const exponent = String(Math.abs(exp)).padStart(2, "0")
-    return { mantissa: mantissaStr, exponentSign, exponent }
-  }
-
-  const formatValue = (value: number) => {
-    if (value === 0) {
-      return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    const sign = value < 0 ? "-" : ""
-    const abs = Math.abs(value)
-    if (abs >= MIN_FIXED && abs < MAX_FIXED) {
-      return { sign, mantissa: formatFixed(value), showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    const sci = formatScientific(value)
-    return { sign, mantissa: sci.mantissa, showExponent: true, exponentSign: sci.exponentSign, exponent: sci.exponent }
-  }
 
   const buildDisplay = () => {
     if (improperOperation) {
@@ -125,7 +51,7 @@ export default function HP35() {
     }
     if (eexActive) {
       const mantissa =
-        eexMantissaText !== "" ? eexMantissaText : formatValue(eexMantissaSign * eexMantissa).mantissa
+        eexMantissaText !== "" ? eexMantissaText : formatNumberToLedDisplay(eexMantissaSign * eexMantissa).mantissa
       const exponent = (eexExponentDigits || "0").padStart(2, "0")
       return {
         sign: eexMantissaSign < 0 ? "-" : "",
@@ -139,12 +65,39 @@ export default function HP35() {
       const mantissa = entryBuffer === "" ? "0." : entryBuffer
       return { sign: entrySign < 0 ? "-" : "", mantissa, showExponent: false, exponentSign: " ", exponent: "" }
     }
-    return formatValue(stack.x)
+    return formatNumberToLedDisplay(stack.x)
   }
 
   const pushStack = (newX: number) => {
     setStack((prev) => ({ t: prev.z, z: prev.y, y: prev.x, x: newX }))
   }
+
+  useEffect(() => {
+    if (!improperOperation) {
+      setImproperOperationVisible(true)
+      return
+    }
+
+    setImproperOperationVisible(true)
+    const interval = window.setInterval(() => {
+      setImproperOperationVisible((visible) => !visible)
+    }, 500)
+
+    return () => window.clearInterval(interval)
+  }, [improperOperation])
+
+  useEffect(() => {
+    if (!onStackChange) return
+    const registerValues = [stack.x, stack.y, stack.z, stack.t]
+    const labels: StackRegisterRow["label"][] = ["X", "Y", "Z", "T"]
+    onStackChange(
+      labels.map((label, index) => ({
+        label,
+        display: index < stackDepth ? formatNumberToLedDisplay(registerValues[index]) : formatNumberToLedDisplay(0),
+        empty: index >= stackDepth,
+      })),
+    )
+  }, [onStackChange, stack, stackDepth])
 
   const resetEntryModes = () => {
     setEntering(false)
@@ -185,9 +138,11 @@ export default function HP35() {
     if (!entering && stackLift) {
       pushStack(stack.x)
       setStackLift(false)
+      setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     }
     if (digit === "\u03C0") {
       setStack((prev) => ({ ...prev, x: Math.PI }))
+      setStackDepth((prev) => Math.max(prev, 1))
       setEntering(false)
       setEntryBuffer("")
       setEntryDecimalExplicit(false)
@@ -218,6 +173,7 @@ export default function HP35() {
       setStack((prev) => ({ ...prev, x: nextSign * Number.parseFloat(newBuffer) }))
       setEntering(true)
       setStackLift(false)
+      setStackDepth((prev) => Math.max(prev, 1))
       return
     }
     const digitsCount = countDigits(entryBuffer)
@@ -241,6 +197,7 @@ export default function HP35() {
       if (stackLift) {
         pushStack(stack.x)
         setStackLift(false)
+        setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
       }
       const nextSign = pendingSign ?? 1
       setEntrySign(nextSign)
@@ -249,6 +206,7 @@ export default function HP35() {
       setEntryDecimalExplicit(true)
       setEntering(true)
       setStack((prev) => ({ ...prev, x: nextSign * 0 }))
+      setStackDepth((prev) => Math.max(prev, 1))
       return
     }
     if (!entryDecimalExplicit) {
@@ -259,6 +217,7 @@ export default function HP35() {
   const enter = () => {
     if (improperOperation) return
     pushStack(stack.x)
+    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     resetEntryModes()
   }
 
@@ -275,6 +234,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "-":
@@ -286,6 +246,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u00D7":
@@ -297,6 +258,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u00F7":
@@ -312,6 +274,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "x^y":
@@ -327,6 +290,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
+          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
         }
         break
       case "\u221Ax":
@@ -342,6 +306,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "1/x":
@@ -357,6 +322,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "sin":
@@ -377,6 +343,7 @@ export default function HP35() {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "cos":
@@ -397,6 +364,7 @@ export default function HP35() {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "tan":
@@ -413,6 +381,7 @@ export default function HP35() {
           }
           setArcActive(false)
           setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "log":
@@ -428,6 +397,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "ln":
@@ -443,6 +413,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "e^x":
@@ -454,6 +425,7 @@ export default function HP35() {
             return
           }
           setStack((prev) => ({ ...prev, x: normalized.value }))
+          setStackDepth((prev) => Math.max(prev, 1))
         }
         break
       case "EEX":
@@ -466,7 +438,7 @@ export default function HP35() {
           const baseValue = stack.x === 0 ? 1 : stack.x
           setEexMantissaSign(baseValue < 0 ? -1 : 1)
           setEexMantissa(Math.abs(baseValue))
-          setEexMantissaText(formatValue(baseValue).mantissa)
+          setEexMantissaText(formatNumberToLedDisplay(baseValue).mantissa)
         }
         setEexActive(true)
         setEexExponentDigits("")
@@ -520,6 +492,7 @@ export default function HP35() {
   const clear = () => {
     setImproperOperation(false)
     setStack({ x: 0, y: 0, z: 0, t: 0 })
+    setStackDepth(0)
     setMemory(0)
     resetEntryModes()
   }
@@ -536,6 +509,7 @@ export default function HP35() {
   const recall = () => {
     if (improperOperation) return
     pushStack(memory)
+    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
     setEntering(false)
     setEntryBuffer("")
     setEntryDecimalExplicit(false)
@@ -626,7 +600,7 @@ export default function HP35() {
 
   /* --- Render --- */
 
-  const displayState = normalizeDisplay(buildDisplay())
+  const displayState: LedDisplayParts = buildDisplay()
 
   return (
     <div
@@ -677,59 +651,39 @@ export default function HP35() {
                   overflow: "hidden",
                 }}
               >
-                {/* Ghost segments underneath */}
-                <div
-                  className="hp-led-ghost"
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    padding: "10px 16px",
-                    fontSize: "19px",
-                    letterSpacing: "1px",
-                    pointerEvents: "none",
-                  }}
-                >
-                  8.8.8.8.8.8.8.8.8.8.8.8.8.8.8.
-                </div>
-                {/* Active display */}
                 <div
                   data-testid="hp35-display"
-                  style={{
-                    fontFamily: "'DSEG7', 'Courier New', monospace",
-                    fontSize: "19px",
-                    fontWeight: "bold",
-                    color: "#ff2800",
-                    textShadow:
-                      "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
-                    textAlign: "left",
-                    letterSpacing: "1px",
-                    minHeight: "30px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    position: "relative",
-                    zIndex: 1,
-                    whiteSpace: "nowrap",
-                    overflow: "visible",
-                    paddingLeft: "2px",
-                    width: "100%",
-                  }}
+                  data-improper-operation={improperOperation ? "true" : "false"}
+                  data-improper-operation-visible={improperOperationVisible ? "true" : "false"}
                 >
-                  <span className="hp-led-sign" data-testid="hp35-display-sign">
-                    {displayState.sign}
-                  </span>
-                  <span className="hp-led-mantissa" data-testid="hp35-display-mantissa">
-                    {displayState.mantissa}
-                  </span>
-                  <span className="hp-led-exponent" data-testid="hp35-display-exponent">
-                    {displayState.showExponent
-                      ? `${displayState.exponentSign}${displayState.exponent}`
-                      : " ".repeat(DISPLAY_EXPONENT_WIDTH)}
-                  </span>
+                  <SevenSegmentDisplay
+                    display={displayState}
+                    testIdPrefix="hp35-display"
+                    className="min-h-[30px]"
+                    sharedClassName="flex items-center justify-start"
+                    sharedStyle={{
+                      fontFamily: "'DSEG7', 'Courier New', monospace",
+                      fontSize: "19px",
+                      fontWeight: "bold",
+                      letterSpacing: "1px",
+                      lineHeight: 1,
+                      minHeight: "30px",
+                      paddingLeft: "2px",
+                      textAlign: "left",
+                      overflow: "visible",
+                    }}
+                    ghostClassName="hp-led-ghost absolute inset-0"
+                    ghostStyle={{
+                      color: "rgba(200, 30, 0, 0.08)",
+                      pointerEvents: "none",
+                    }}
+                    activeClassName={improperOperationVisible ? "relative z-[1] opacity-100" : "relative z-[1] opacity-0"}
+                    activeStyle={{
+                      color: "#ff2800",
+                      textShadow: "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
+                      transition: "none",
+                    }}
+                  />
                 </div>
               </div>
             </div>
