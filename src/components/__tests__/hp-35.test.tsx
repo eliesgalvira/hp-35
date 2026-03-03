@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, expect, it, vi } from "vitest"
+import { act, fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
 
@@ -43,6 +43,10 @@ const expectImproperOperationDisplay = () => expectDisplay({ sign: " ", mantissa
 
 const expectImproperOperationBlinking = (expected: boolean) => {
   expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation", expected ? "true" : "false")
+}
+
+const expectImproperOperationVisible = (expected: boolean) => {
+  expect(screen.getByTestId("hp35-display")).toHaveAttribute("data-improper-operation-visible", expected ? "true" : "false")
 }
 
 const press = async (user: ReturnType<typeof userEvent.setup>, label: string) => {
@@ -227,6 +231,7 @@ describe("HP-35 behavior", () => {
     await pressSequence(user, ["3", "ENTER🡪", "0", "÷"])
     expectImproperOperationDisplay()
     expectImproperOperationBlinking(true)
+    expectImproperOperationVisible(true)
 
     await press(user, "7")
     expectImproperOperationDisplay()
@@ -235,6 +240,32 @@ describe("HP-35 behavior", () => {
     await pressSequence(user, ["CLx", "7"])
     expectDisplay({ sign: " ", mantissa: "7." })
     expectImproperOperationBlinking(false)
+    expectImproperOperationVisible(true)
+  })
+
+  it("toggles the display visibility while improper operation is latched", async () => {
+    vi.useFakeTimers()
+    try {
+      render(<HP35 />)
+
+      fireEvent.mouseDown(screen.getByRole("button", { name: "3" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "ENTER🡪" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "0" }))
+      fireEvent.mouseDown(screen.getByRole("button", { name: "÷" }))
+      expectImproperOperationVisible(true)
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expectImproperOperationVisible(false)
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expectImproperOperationVisible(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("latches improper operation for 0 divided by 0", async () => {

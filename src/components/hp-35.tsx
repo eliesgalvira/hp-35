@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type CSSProperties } from "react"
+import { useEffect, useState, type CSSProperties } from "react"
 
 interface StackState {
   x: number
@@ -12,6 +12,7 @@ interface StackState {
 export default function HP35() {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
   const [improperOperation, setImproperOperation] = useState(false)
+  const [improperOperationVisible, setImproperOperationVisible] = useState(true)
   const [entering, setEntering] = useState(false)
   const [entryBuffer, setEntryBuffer] = useState("")
   const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
@@ -145,6 +146,20 @@ export default function HP35() {
   const pushStack = (newX: number) => {
     setStack((prev) => ({ t: prev.z, z: prev.y, y: prev.x, x: newX }))
   }
+
+  useEffect(() => {
+    if (!improperOperation) {
+      setImproperOperationVisible(true)
+      return
+    }
+
+    setImproperOperationVisible(true)
+    const interval = window.setInterval(() => {
+      setImproperOperationVisible((visible) => !visible)
+    }, 500)
+
+    return () => window.clearInterval(interval)
+  }, [improperOperation])
 
   const resetEntryModes = () => {
     setEntering(false)
@@ -699,7 +714,8 @@ export default function HP35() {
                 <div
                   data-testid="hp35-display"
                   data-improper-operation={improperOperation ? "true" : "false"}
-                  className={improperOperation ? "hp-improper-operation" : undefined}
+                  data-improper-operation-visible={improperOperationVisible ? "true" : "false"}
+                  className={improperOperationVisible ? "opacity-100" : "opacity-0"}
                   style={{
                     fontFamily: "'DSEG7', 'Courier New', monospace",
                     fontSize: "19px",
@@ -719,6 +735,7 @@ export default function HP35() {
                     overflow: "visible",
                     paddingLeft: "2px",
                     width: "100%",
+                    transition: "none",
                   }}
                 >
                   <span className="hp-led-sign" data-testid="hp35-display-sign">
