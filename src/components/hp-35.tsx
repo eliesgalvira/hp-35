@@ -98,7 +98,6 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
       })),
     )
   }, [onStackChange, stack, stackDepth])
-
   const resetEntryModes = () => {
     setEntering(false)
     setEntryBuffer("")
