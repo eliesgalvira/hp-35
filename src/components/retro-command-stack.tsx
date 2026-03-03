@@ -87,22 +87,21 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                       <SevenSegmentDisplay
                         display={row.empty ? { sign: "", mantissa: "", showExponent: false, exponentSign: " ", exponent: "" } : row.display}
                         className="h-[1.05rem]"
-                        ghostClassName={`hp-led-ghost absolute inset-0 flex items-center justify-start ${rowDepthClasses[index]}`}
-                        ghostStyle={{
+                        sharedClassName="flex items-center justify-start"
+                        sharedStyle={{
                           fontSize: "1.05rem",
                           fontWeight: 700,
                           letterSpacing: "1px",
                           lineHeight: 1,
                           fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
                         }}
-                        activeClassName={`flex items-center justify-start ${rowDepthClasses[index]}`}
+                        ghostClassName={`hp-led-ghost absolute inset-0 ${rowDepthClasses[index]}`}
+                        ghostStyle={{
+                          color: "rgba(200, 30, 0, 0.08)",
+                        }}
+                        activeClassName={rowDepthClasses[index]}
                         activeStyle={{
-                          fontSize: "1.05rem",
-                          fontWeight: 700,
                           color: "#ff4b2b",
-                          letterSpacing: "1px",
-                          lineHeight: 1,
-                          fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
                           textShadow:
                             index === 0
                               ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"

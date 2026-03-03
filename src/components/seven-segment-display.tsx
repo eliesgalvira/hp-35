@@ -6,6 +6,8 @@ import { DISPLAY_EXPONENT_WIDTH, normalizeLedDisplay, type LedDisplayParts } fro
 interface SevenSegmentDisplayProps {
   display: LedDisplayParts
   className?: string
+  sharedClassName?: string
+  sharedStyle?: CSSProperties
   activeClassName?: string
   activeStyle?: CSSProperties
   ghostClassName?: string
@@ -24,6 +26,8 @@ const ghostDisplay = normalizeLedDisplay({
 export function SevenSegmentDisplay({
   display,
   className,
+  sharedClassName,
+  sharedStyle,
   activeClassName,
   activeStyle,
   ghostClassName,
@@ -34,12 +38,19 @@ export function SevenSegmentDisplay({
 
   return (
     <div className={className ? `relative w-full ${className}` : "relative w-full"}>
-      <div className={ghostClassName} aria-hidden="true" style={{ width: "100%", whiteSpace: "nowrap", ...ghostStyle }}>
+      <div
+        className={sharedClassName ? `${sharedClassName} ${ghostClassName ?? ""}`.trim() : ghostClassName}
+        aria-hidden="true"
+        style={{ width: "100%", whiteSpace: "nowrap", ...sharedStyle, ...ghostStyle }}
+      >
         <span className="hp-led-sign">8</span>
         <span className="hp-led-mantissa">{ghostDisplay.mantissa}</span>
         <span className="hp-led-exponent">{`${ghostDisplay.exponentSign}${ghostDisplay.exponent}`}</span>
       </div>
-      <div className={activeClassName} style={{ width: "100%", whiteSpace: "nowrap", ...activeStyle }}>
+      <div
+        className={sharedClassName ? `${sharedClassName} ${activeClassName ?? ""}`.trim() : activeClassName}
+        style={{ width: "100%", whiteSpace: "nowrap", ...sharedStyle, ...activeStyle }}
+      >
         <span className="hp-led-sign" data-testid={testIdPrefix ? `${testIdPrefix}-sign` : undefined}>
           {normalized.sign}
         </span>

@@ -660,30 +660,27 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                     display={displayState}
                     testIdPrefix="hp35-display"
                     className="min-h-[30px]"
-                    ghostClassName="hp-led-ghost absolute inset-0 flex items-center justify-start"
-                    ghostStyle={{
-                      padding: "10px 16px",
-                      fontSize: "19px",
-                      fontWeight: "bold",
-                      letterSpacing: "1px",
-                      lineHeight: 1,
-                      pointerEvents: "none",
-                    }}
-                    activeClassName={improperOperationVisible ? "flex items-center justify-start opacity-100" : "flex items-center justify-start opacity-0"}
-                    activeStyle={{
+                    sharedClassName="flex items-center justify-start"
+                    sharedStyle={{
                       fontFamily: "'DSEG7', 'Courier New', monospace",
                       fontSize: "19px",
                       fontWeight: "bold",
-                      color: "#ff2800",
-                      textShadow: "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
-                      textAlign: "left",
                       letterSpacing: "1px",
                       lineHeight: 1,
                       minHeight: "30px",
-                      position: "relative",
-                      zIndex: 1,
-                      overflow: "visible",
                       paddingLeft: "2px",
+                      textAlign: "left",
+                      overflow: "visible",
+                    }}
+                    ghostClassName="hp-led-ghost absolute inset-0"
+                    ghostStyle={{
+                      color: "rgba(200, 30, 0, 0.08)",
+                      pointerEvents: "none",
+                    }}
+                    activeClassName={improperOperationVisible ? "relative z-[1] opacity-100" : "relative z-[1] opacity-0"}
+                    activeStyle={{
+                      color: "#ff2800",
+                      textShadow: "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
                       transition: "none",
                     }}
                   />
