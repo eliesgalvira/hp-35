@@ -17,10 +17,10 @@ interface SevenSegmentDisplayProps {
 
 const ghostDisplay = normalizeLedDisplay({
   sign: "8",
-  mantissa: "8.8.8.8.8.8",
+  mantissa: "88888888888",
   showExponent: true,
   exponentSign: "8",
-  exponent: "88",
+  exponent: "888",
 })
 
 export function SevenSegmentDisplay({
