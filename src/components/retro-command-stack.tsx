@@ -1,10 +1,12 @@
 "use client"
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { SevenSegmentDisplay } from "./seven-segment-display"
+import type { LedDisplayParts } from "../lib/hp-led-display"
 
 export interface StackRegisterRow {
   label: "X" | "Y" | "Z" | "T"
-  value: string
+  display: LedDisplayParts
   empty: boolean
 }
 
@@ -55,16 +57,9 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
               >
                 <span className="w-5 text-[12px] font-semibold tracking-[0.28em] text-[#7d3b30]/85">{row.label}</span>
                 <div className="relative min-w-0 flex-1">
-                  <div
-                    aria-hidden="true"
-                    className={`truncate text-[1.05rem] font-bold tracking-[0.16em] text-[#47110b] ${rowDepthClasses[index]}`}
-                    style={{ fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace" }}
-                  >
-                    8.8.8.8.8.8.8.
-                  </div>
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div
-                      key={`${row.label}:${row.empty ? "empty" : row.value}`}
+                      key={`${row.label}:${row.empty ? "empty" : `${row.display.sign}${row.display.mantissa}${row.display.exponentSign}${row.display.exponent}`}`}
                       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, filter: "brightness(0.78)" }}
                       animate={
                         row.empty
@@ -75,7 +70,7 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                                 opacity: [0.25, 1, 0.62, 1],
                                 y: 0,
                                 filter: ["brightness(0.82)", "brightness(1.18)", "brightness(0.94)", "brightness(1)"],
-                              }
+                            }
                       }
                       exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, filter: "brightness(0.75)" }}
                       transition={
@@ -87,16 +82,31 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                               filter: { duration: 0.22, times: [0, 0.33, 0.66, 1] },
                             }
                       }
-                      className={`absolute inset-0 truncate text-[1.05rem] font-bold uppercase tracking-[0.16em] text-[#ff4b2b] ${rowDepthClasses[index]}`}
-                      style={{
-                        fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
-                        textShadow:
-                          index === 0
-                            ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"
-                            : "0 0 4px rgba(255,59,31,0.55), 0 0 10px rgba(255,59,31,0.18)",
-                      }}
+                      className="absolute inset-0"
                     >
-                      {row.empty ? "" : row.value}
+                      <SevenSegmentDisplay
+                        display={row.empty ? { sign: "", mantissa: "", showExponent: false, exponentSign: " ", exponent: "" } : row.display}
+                        className="relative"
+                        ghostClassName={`hp-led-ghost absolute inset-0 flex items-center justify-start ${rowDepthClasses[index]}`}
+                        ghostStyle={{
+                          fontSize: "1.05rem",
+                          fontWeight: 700,
+                          letterSpacing: "1px",
+                          fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
+                        }}
+                        activeClassName={`flex items-center justify-start ${rowDepthClasses[index]}`}
+                        activeStyle={{
+                          fontSize: "1.05rem",
+                          fontWeight: 700,
+                          color: "#ff4b2b",
+                          letterSpacing: "1px",
+                          fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
+                          textShadow:
+                            index === 0
+                              ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"
+                              : "0 0 4px rgba(255,59,31,0.55), 0 0 10px rgba(255,59,31,0.18)",
+                        }}
+                      />
                     </motion.div>
                   </AnimatePresence>
                 </div>

@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useState, type CSSProperties } from "react"
-import type { StackRegisterRow } from "@/components/retro-command-stack"
+import type { StackRegisterRow } from "./retro-command-stack"
+import { SevenSegmentDisplay } from "./seven-segment-display"
+import { formatNumberToLedDisplay, type LedDisplayParts } from "../lib/hp-led-display"
 
 interface StackState {
   x: number
@@ -37,102 +39,11 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
   const MAX_MANTISSA_DIGITS = 10
-  const DISPLAY_MANTISSA_WIDTH = 11
-  const DISPLAY_EXPONENT_WIDTH = 3
   const MIN_MAGNITUDE = 1e-99
   const MAX_MAGNITUDE = 1e100
   const MAX_DISPLAY_VALUE = 9.999999999e99
-  const MIN_FIXED = 1e-2
-  const MAX_FIXED = 1e10
 
   const countDigits = (value: string) => value.replace(".", "").length
-
-  const trimTrailingZeros = (value: string) => {
-    if (!value.includes(".")) return `${value}.`
-    const [intPart, fracPart = ""] = value.split(".")
-    const trimmedFrac = fracPart.replace(/0+$/, "")
-    if (trimmedFrac.length === 0) return `${intPart}.`
-    return `${intPart}.${trimmedFrac}`
-  }
-
-  const normalizeSign = (value: string) => (value === "-" ? "-" : " ")
-
-  const normalizeMantissa = (value: string) => {
-    const withDecimal = value.includes(".") ? value : `${value}.`
-    const trimmed =
-      withDecimal.length > DISPLAY_MANTISSA_WIDTH ? withDecimal.slice(0, DISPLAY_MANTISSA_WIDTH) : withDecimal
-    return trimmed.padEnd(DISPLAY_MANTISSA_WIDTH, " ")
-  }
-
-  const normalizeExponentDigits = (value: string) => value.padStart(2, "0").slice(-2)
-
-  const normalizeDisplay = (parts: {
-    sign: string
-    mantissa: string
-    showExponent: boolean
-    exponentSign: string
-    exponent: string
-  }) => {
-    const base = {
-      ...parts,
-      sign: normalizeSign(parts.sign),
-      mantissa: normalizeMantissa(parts.mantissa),
-    }
-    if (!parts.showExponent) {
-      return { ...base, exponentSign: " ", exponent: "" }
-    }
-    return {
-      ...base,
-      exponentSign: normalizeSign(parts.exponentSign),
-      exponent: normalizeExponentDigits(parts.exponent),
-    }
-  }
-
-  const formatFixed = (value: number) => {
-    const abs = Math.abs(value)
-    const digitsBefore = abs >= 1 ? Math.floor(Math.log10(abs)) + 1 : 1
-    const decimals = Math.max(0, MAX_MANTISSA_DIGITS - digitsBefore)
-    const raw = abs.toFixed(decimals)
-    const trimmed = trimTrailingZeros(raw)
-    if (abs > 0 && abs < 1) return trimmed.replace(/^0/, "")
-    return trimmed
-  }
-
-  const formatScientific = (value: number) => {
-    const abs = Math.abs(value)
-    let exp = Math.floor(Math.log10(abs))
-    let mantissa = abs / Math.pow(10, exp)
-    let mantissaRounded = Number(mantissa.toFixed(9))
-    if (mantissaRounded >= 10) {
-      mantissaRounded /= 10
-      exp += 1
-    }
-    const mantissaStr = trimTrailingZeros(mantissaRounded.toFixed(9))
-    const exponentSign = exp >= 0 ? " " : "-"
-    const exponent = String(Math.abs(exp)).padStart(2, "0")
-    return { mantissa: mantissaStr, exponentSign, exponent }
-  }
-
-  const formatValue = (value: number) => {
-    if (value === 0) {
-      return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    const sign = value < 0 ? "-" : ""
-    const abs = Math.abs(value)
-    if (abs >= MIN_FIXED && abs < MAX_FIXED) {
-      return { sign, mantissa: formatFixed(value), showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    const sci = formatScientific(value)
-    return { sign, mantissa: sci.mantissa, showExponent: true, exponentSign: sci.exponentSign, exponent: sci.exponent }
-  }
-
-  const formatRegisterText = (value: number) => {
-    const formatted = formatValue(value)
-    const sign = formatted.sign === "-" ? "-" : ""
-    const mantissa = formatted.mantissa.trim()
-    if (!formatted.showExponent) return `${sign}${mantissa === "0." ? "0" : mantissa}`
-    return `${sign}${mantissa} ${formatted.exponentSign}${formatted.exponent}`
-  }
 
   const buildDisplay = () => {
     if (improperOperation) {
@@ -140,7 +51,7 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
     }
     if (eexActive) {
       const mantissa =
-        eexMantissaText !== "" ? eexMantissaText : formatValue(eexMantissaSign * eexMantissa).mantissa
+        eexMantissaText !== "" ? eexMantissaText : formatNumberToLedDisplay(eexMantissaSign * eexMantissa).mantissa
       const exponent = (eexExponentDigits || "0").padStart(2, "0")
       return {
         sign: eexMantissaSign < 0 ? "-" : "",
@@ -154,7 +65,7 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
       const mantissa = entryBuffer === "" ? "0." : entryBuffer
       return { sign: entrySign < 0 ? "-" : "", mantissa, showExponent: false, exponentSign: " ", exponent: "" }
     }
-    return formatValue(stack.x)
+    return formatNumberToLedDisplay(stack.x)
   }
 
   const pushStack = (newX: number) => {
@@ -182,7 +93,7 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
     onStackChange(
       labels.map((label, index) => ({
         label,
-        value: index < stackDepth ? formatRegisterText(registerValues[index]) : "",
+        display: index < stackDepth ? formatNumberToLedDisplay(registerValues[index]) : formatNumberToLedDisplay(0),
         empty: index >= stackDepth,
       })),
     )
@@ -527,7 +438,7 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
           const baseValue = stack.x === 0 ? 1 : stack.x
           setEexMantissaSign(baseValue < 0 ? -1 : 1)
           setEexMantissa(Math.abs(baseValue))
-          setEexMantissaText(formatValue(baseValue).mantissa)
+          setEexMantissaText(formatNumberToLedDisplay(baseValue).mantissa)
         }
         setEexActive(true)
         setEexExponentDigits("")
@@ -689,7 +600,7 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
 
   /* --- Render --- */
 
-  const displayState = normalizeDisplay(buildDisplay())
+  const displayState: LedDisplayParts = buildDisplay()
 
   return (
     <div
@@ -740,63 +651,44 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                   overflow: "hidden",
                 }}
               >
-                {/* Ghost segments underneath */}
-                <div
-                  className="hp-led-ghost"
-                  aria-hidden="true"
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    padding: "10px 16px",
-                    fontSize: "19px",
-                    letterSpacing: "1px",
-                    pointerEvents: "none",
-                  }}
-                >
-                  8.8.8.8.8.8.8.8.8.8.8.8.8.8.8.
-                </div>
-                {/* Active display */}
                 <div
                   data-testid="hp35-display"
                   data-improper-operation={improperOperation ? "true" : "false"}
                   data-improper-operation-visible={improperOperationVisible ? "true" : "false"}
-                  className={improperOperationVisible ? "opacity-100" : "opacity-0"}
-                  style={{
-                    fontFamily: "'DSEG7', 'Courier New', monospace",
-                    fontSize: "19px",
-                    fontWeight: "bold",
-                    color: "#ff2800",
-                    textShadow:
-                      "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
-                    textAlign: "left",
-                    letterSpacing: "1px",
-                    minHeight: "30px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                    position: "relative",
-                    zIndex: 1,
-                    whiteSpace: "nowrap",
-                    overflow: "visible",
-                    paddingLeft: "2px",
-                    width: "100%",
-                    transition: "none",
-                  }}
                 >
-                  <span className="hp-led-sign" data-testid="hp35-display-sign">
-                    {displayState.sign}
-                  </span>
-                  <span className="hp-led-mantissa" data-testid="hp35-display-mantissa">
-                    {displayState.mantissa}
-                  </span>
-                  <span className="hp-led-exponent" data-testid="hp35-display-exponent">
-                    {displayState.showExponent
-                      ? `${displayState.exponentSign}${displayState.exponent}`
-                      : " ".repeat(DISPLAY_EXPONENT_WIDTH)}
-                  </span>
+                  <SevenSegmentDisplay
+                    display={displayState}
+                    testIdPrefix="hp35-display"
+                    className="relative"
+                    ghostClassName="hp-led-ghost absolute inset-0 flex items-center justify-start"
+                    ghostStyle={{
+                      padding: "10px 16px",
+                      fontSize: "19px",
+                      letterSpacing: "1px",
+                      pointerEvents: "none",
+                    }}
+                    activeClassName={improperOperationVisible ? "opacity-100" : "opacity-0"}
+                    activeStyle={{
+                      fontFamily: "'DSEG7', 'Courier New', monospace",
+                      fontSize: "19px",
+                      fontWeight: "bold",
+                      color: "#ff2800",
+                      textShadow: "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)",
+                      textAlign: "left",
+                      letterSpacing: "1px",
+                      minHeight: "30px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      position: "relative",
+                      zIndex: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "visible",
+                      paddingLeft: "2px",
+                      width: "100%",
+                      transition: "none",
+                    }}
+                  />
                 </div>
               </div>
             </div>

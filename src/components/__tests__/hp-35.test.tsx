@@ -62,6 +62,20 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
 
 const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
 
+const makeRow = (
+  label: StackRegisterRow["label"],
+  mantissa: string,
+  empty: boolean,
+  sign = "",
+  showExponent = false,
+  exponentSign = " ",
+  exponent = "",
+): StackRegisterRow => ({
+  label,
+  display: { sign, mantissa, showExponent, exponentSign, exponent },
+  empty,
+})
+
 describe("HP-35 behavior", () => {
   it("starts with a zeroed display", () => {
     render(<HP35 />)
@@ -76,26 +90,26 @@ describe("HP-35 behavior", () => {
 
     await press(user, "7")
     expect(latestRows(onStackChangeCalls)).toEqual([
-      { label: "X", value: "7.", empty: false },
-      { label: "Y", value: "", empty: true },
-      { label: "Z", value: "", empty: true },
-      { label: "T", value: "", empty: true },
+      makeRow("X", "7.", false),
+      makeRow("Y", "0.", true),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
     ])
 
     await press(user, "ENTER🡪")
     expect(latestRows(onStackChangeCalls)).toEqual([
-      { label: "X", value: "7.", empty: false },
-      { label: "Y", value: "7.", empty: false },
-      { label: "Z", value: "", empty: true },
-      { label: "T", value: "", empty: true },
+      makeRow("X", "7.", false),
+      makeRow("Y", "7.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
     ])
 
     await press(user, "8")
     expect(latestRows(onStackChangeCalls)).toEqual([
-      { label: "X", value: "8.", empty: false },
-      { label: "Y", value: "7.", empty: false },
-      { label: "Z", value: "", empty: true },
-      { label: "T", value: "", empty: true },
+      makeRow("X", "8.", false),
+      makeRow("Y", "7.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
     ])
   })
 
@@ -106,10 +120,10 @@ describe("HP-35 behavior", () => {
 
     await pressSequence(user, ["7", "ENTER🡪", "8", "x⮂y"])
     expect(latestRows(onStackChangeCalls)).toEqual([
-      { label: "X", value: "7.", empty: false },
-      { label: "Y", value: "8.", empty: false },
-      { label: "Z", value: "", empty: true },
-      { label: "T", value: "", empty: true },
+      makeRow("X", "7.", false),
+      makeRow("Y", "8.", false),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
     ])
   })
 

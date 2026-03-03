@@ -5,10 +5,10 @@ import HP35 from "@/components/hp-35"
 import { RetroCommandStack, type StackRegisterRow } from "@/components/retro-command-stack"
 
 const emptyRows: StackRegisterRow[] = [
-  { label: "X", value: "", empty: true },
-  { label: "Y", value: "", empty: true },
-  { label: "Z", value: "", empty: true },
-  { label: "T", value: "", empty: true },
+  { label: "X", display: { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }, empty: true },
+  { label: "Y", display: { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }, empty: true },
+  { label: "Z", display: { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }, empty: true },
+  { label: "T", display: { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }, empty: true },
 ]
 
 export function HP35Experience() {
