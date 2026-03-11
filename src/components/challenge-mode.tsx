@@ -42,7 +42,7 @@ const cardPaperBackground = [
 ].join(",")
 
 const panelButtonClass =
-  "inline-flex min-w-[140px] items-center justify-center rounded-[8px] border border-[#5b2617] bg-[#2a100c] px-5 py-3 text-[18px] font-medium uppercase tracking-[0.08em] text-[#d8a08f] [font-family:'TexGyreHeros','Helvetica_Neue',Helvetica,sans-serif] transition-colors duration-150 hover:bg-[#381510] hover:text-[#e2b1a2] disabled:cursor-not-allowed disabled:opacity-35"
+  "inline-flex min-w-[140px] items-center justify-center rounded-[8px] border border-[#5b2617] bg-[#2a100c] px-5 py-3 text-[12px] leading-[1.15] font-normal uppercase tracking-[0.22em] text-[#d8a08f] transition-colors duration-150 hover:bg-[#381510] hover:text-[#e2b1a2] disabled:cursor-not-allowed disabled:opacity-35"
 const feedbackPillClass =
   "flex min-w-0 items-center gap-2 rounded-[8px] border px-3 py-2 text-[12px] font-medium shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
 
