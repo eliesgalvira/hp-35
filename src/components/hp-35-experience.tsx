@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { challengeDeck } from "@/components/challenge-data"
-import { ChallengeMode } from "@/components/challenge-mode"
+import { ChallengeMode, type ChallengeFailureFeedback } from "@/components/challenge-mode"
 import {
   challengeModeReducer,
   createInitialChallengeMachineState,
@@ -21,6 +21,8 @@ export function HP35Experience() {
   const [rows, setRows] = useState<StackRegisterRow[]>(emptyRows)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [calculatorResetNonce, setCalculatorResetNonce] = useState(0)
+  const [clearXNonce, setClearXNonce] = useState(0)
+  const [failureFeedback, setFailureFeedback] = useState<ChallengeFailureFeedback | null>(null)
   const [challengeState, dispatch] = useReducer(challengeModeReducer, undefined, createInitialChallengeMachineState)
   const inputNonceRef = useRef(0)
 
@@ -45,6 +47,17 @@ export function HP35Experience() {
   }
 
   const handleButtonPress = (token: string) => {
+    if (challengeState.phase === "active") {
+      const expected = selectedChallenge.steps[challengeState.attemptIndex]
+      if (expected && token !== expected) {
+        setFailureFeedback({
+          challengeId: selectedChallenge.id,
+          pressed: token,
+          expected,
+        })
+      }
+    }
+
     inputNonceRef.current += 1
     dispatch({
       type: "input",
@@ -63,12 +76,15 @@ export function HP35Experience() {
 
     const nextChallenge = challengeDeck[nextIndex] ?? challengeDeck[0]
 
+    setFailureFeedback(null)
+    setClearXNonce((current) => current + 1)
     setSelectedIndex(nextIndex)
     dispatch({ type: "select", challengeId: nextChallenge.id })
   }, [activeChallengeIndex])
 
   const handleChallengeStart = () => {
     resetCalculator()
+    setFailureFeedback(null)
     dispatch({
       type: "start",
       challengeId: selectedChallenge.id,
@@ -78,6 +94,7 @@ export function HP35Experience() {
 
   const handleChallengeRepeat = () => {
     resetCalculator()
+    setFailureFeedback(null)
     dispatch({
       type: "repeat",
       challengeId: selectedChallenge.id,
@@ -87,6 +104,7 @@ export function HP35Experience() {
 
   const handleChallengeEnd = () => {
     resetCalculator()
+    setFailureFeedback(null)
     setSelectedIndex(0)
     dispatch({ type: "end", currentInputNonce: inputNonceRef.current })
   }
@@ -97,6 +115,7 @@ export function HP35Experience() {
         className="lg:w-[360px] lg:justify-self-end"
         selectedIndex={activeChallengeIndex}
         state={challengeState}
+        failureFeedback={failureFeedback}
         onSelectIndex={handleSelectIndex}
         onStart={handleChallengeStart}
         onRepeat={handleChallengeRepeat}
@@ -115,6 +134,7 @@ export function HP35Experience() {
         />
         <HP35
           resetNonce={calculatorResetNonce}
+          clearXNonce={clearXNonce}
           onStackChange={setRows}
           onButtonPress={handleButtonPress}
         />

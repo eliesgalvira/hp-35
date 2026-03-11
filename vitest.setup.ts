@@ -34,13 +34,11 @@ if (!window.matchMedia) {
 }
 
 if (!globalThis.ResizeObserver) {
-  // @ts-expect-error test environment polyfill
-  globalThis.ResizeObserver = ResizeObserverMock
+  globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
 }
 
 if (!globalThis.IntersectionObserver) {
-  // @ts-expect-error test environment polyfill
-  globalThis.IntersectionObserver = IntersectionObserverMock
+  globalThis.IntersectionObserver = IntersectionObserverMock as unknown as typeof IntersectionObserver
 }
 
 if (!HTMLElement.prototype.scrollTo) {

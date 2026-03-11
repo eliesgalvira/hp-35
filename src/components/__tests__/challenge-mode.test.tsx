@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { fireEvent, render, screen } from "@testing-library/react"
 
 import { challengeDeck } from "../challenge-data"
 import { ChallengeMode } from "../challenge-mode"
@@ -79,6 +78,7 @@ describe("Challenge mode", () => {
       <ChallengeMode
         selectedIndex={0}
         state={createInitialChallengeMachineState()}
+        failureFeedback={null}
         onSelectIndex={vi.fn()}
         onStart={vi.fn()}
         onRepeat={vi.fn()}
@@ -93,11 +93,7 @@ describe("Challenge mode", () => {
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
   })
 
-  it("shows repeat and end controls after a failed attempt", async () => {
-    const user = userEvent.setup()
-    const onRepeat = vi.fn()
-    const onEnd = vi.fn()
-
+  it("shows the wrong and expected keys in the failure feedback overlay", () => {
     render(
       <ChallengeMode
         selectedIndex={0}
@@ -108,26 +104,26 @@ describe("Challenge mode", () => {
           flash: "error",
           flashNonce: 1,
         }}
+        failureFeedback={{
+          challengeId: challengeDeck[0].id,
+          pressed: "0",
+          expected: "3",
+        }}
         onSelectIndex={vi.fn()}
         onStart={vi.fn()}
-        onRepeat={onRepeat}
-        onEnd={onEnd}
+        onRepeat={vi.fn()}
+        onEnd={vi.fn()}
       />
     )
 
-    expect(screen.getByTestId("challenge-repeat")).toBeInTheDocument()
-    expect(screen.getByTestId("challenge-end")).toBeInTheDocument()
+    expect(screen.getByTestId("challenge-failure-feedback")).toBeInTheDocument()
+    expect(screen.getByTestId("challenge-failure-actions")).toBeInTheDocument()
+    expect(screen.getByTestId("challenge-failure-pressed")).toHaveTextContent("0")
+    expect(screen.getByTestId("challenge-failure-expected")).toHaveTextContent("3")
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
-
-    await user.click(screen.getByTestId("challenge-end"))
-    await user.click(screen.getByTestId("challenge-repeat"))
-
-    expect(onEnd).toHaveBeenCalledTimes(1)
-    expect(onRepeat).toHaveBeenCalledTimes(1)
   })
 
   it("flips the solved card and allows moving to the next slide", async () => {
-    const user = userEvent.setup()
     const onSelectIndex = vi.fn()
 
     render(
@@ -142,6 +138,7 @@ describe("Challenge mode", () => {
           flash: "success",
           flashNonce: 1,
         }}
+        failureFeedback={null}
         onSelectIndex={onSelectIndex}
         onStart={vi.fn()}
         onRepeat={vi.fn()}
@@ -152,7 +149,7 @@ describe("Challenge mode", () => {
     expect(screen.getByTestId(`challenge-card-${challengeDeck[0].id}`)).toHaveAttribute("data-flipped", "true")
     expect(screen.getByRole("button", { name: "Next slide" })).toBeEnabled()
 
-    await user.click(screen.getByRole("button", { name: "Next slide" }))
+    fireEvent.click(screen.getByRole("button", { name: "Next slide" }))
 
     expect(onSelectIndex).toHaveBeenCalledWith(1)
   })

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
+import { challengeDeck } from "../challenge-data"
 import { HP35Experience } from "../hp-35-experience"
 
 const getDisplayParts = (prefix: string) => {
@@ -10,6 +11,17 @@ const getDisplayParts = (prefix: string) => {
   const exponent = screen.getByTestId(`${prefix}-exponent`).textContent ?? ""
 
   return { sign, mantissa, exponent }
+}
+
+const labelForChallengeToken = (token: string) => {
+  if (token === "ENTER") return "ENTER🡪"
+  return token
+}
+
+const pressChallenge = async (user: ReturnType<typeof userEvent.setup>, challengeIndex: number) => {
+  for (const token of challengeDeck[challengeIndex].steps) {
+    await user.click(screen.getByRole("button", { name: labelForChallengeToken(token) }))
+  }
 }
 
 describe("HP35Experience integration", () => {
@@ -52,6 +64,7 @@ describe("HP35Experience integration", () => {
     await user.click(screen.getByRole("button", { name: "5" }))
     await user.click(screen.getByRole("button", { name: "7" }))
     await user.click(screen.getByRole("button", { name: "0" }))
+    await screen.findByTestId("challenge-repeat", {}, { timeout: 2000 })
     await user.click(screen.getByTestId("challenge-repeat"))
 
     await waitFor(() => {
@@ -66,7 +79,7 @@ describe("HP35Experience integration", () => {
 
     await user.click(screen.getByTestId("challenge-start"))
     await user.click(screen.getByRole("button", { name: "0" }))
-    await waitFor(() => expect(screen.getByTestId("challenge-end")).toBeInTheDocument())
+    await screen.findByTestId("challenge-end", {}, { timeout: 2000 })
     await user.click(screen.getByTestId("challenge-end"))
 
     await waitFor(() => {
@@ -95,7 +108,7 @@ describe("HP35Experience integration", () => {
 
     await user.click(screen.getByTestId("challenge-start"))
     await user.click(screen.getByRole("button", { name: "0" }))
-    await waitFor(() => expect(screen.getByTestId("challenge-repeat")).toBeInTheDocument())
+    await screen.findByTestId("challenge-repeat", {}, { timeout: 2000 })
     fireEvent.click(screen.getByTestId("challenge-repeat"))
     fireEvent.mouseDown(screen.getByRole("button", { name: "3" }))
 
@@ -115,6 +128,28 @@ describe("HP35Experience integration", () => {
     await waitFor(() => {
       expect(screen.getByTestId("challenge-repeat")).toBeInTheDocument()
       expect(getDisplayParts("stack-display-y")).toEqual({ sign: " ", mantissa: "0.         ", exponent: "   " })
+    }, { timeout: 2000 })
+  })
+
+  it("clears the X register with CLx semantics when moving to the next solved challenge", async () => {
+    const user = userEvent.setup()
+    render(<HP35Experience />)
+
+    await user.click(screen.getByTestId("challenge-start"))
+    await pressChallenge(user, 0)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next slide" })).toBeEnabled())
+
+    await user.click(screen.getByRole("button", { name: "5" }))
+    await waitFor(() => {
+      expect(getDisplayParts("hp35-display")).toEqual({ sign: " ", mantissa: "5.         ", exponent: "   " })
+    })
+
+    await user.click(screen.getByRole("button", { name: "Next slide" }))
+
+    await waitFor(() => {
+      expect(getDisplayParts("hp35-display")).toEqual({ sign: " ", mantissa: "0.         ", exponent: "   " })
+      expect(screen.getByText("02 / 06")).toBeInTheDocument()
     })
   })
 })

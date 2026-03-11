@@ -14,11 +14,12 @@ interface StackState {
 
 interface HP35Props {
   resetNonce?: number
+  clearXNonce?: number
   onStackChange?: (rows: StackRegisterRow[]) => void
   onButtonPress?: (token: string) => void
 }
 
-function HP35({ resetNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) {
+function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
   const [stackDepth, setStackDepth] = useState(0)
   const [improperOperation, setImproperOperation] = useState(false)
@@ -38,6 +39,7 @@ function HP35({ resetNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) 
   const [arcActive, setArcActive] = useState(false)
   const [stackLift, setStackLift] = useState(false)
   const lastResetNonceRef = useRef(resetNonce)
+  const lastClearXNonceRef = useRef(clearXNonce)
 
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
@@ -500,11 +502,24 @@ function HP35({ resetNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) 
     resetEntryModes()
   }
 
+  const clearXRegister = () => {
+    setImproperOperation(false)
+    setImproperOperationVisible(true)
+    setStack((prev) => ({ ...prev, x: 0 }))
+    resetEntryModes()
+  }
+
   useLayoutEffect(() => {
     if (resetNonce === lastResetNonceRef.current) return
     clear()
     lastResetNonceRef.current = resetNonce
   }, [resetNonce])
+
+  useLayoutEffect(() => {
+    if (clearXNonce === lastClearXNonceRef.current) return
+    clearXRegister()
+    lastClearXNonceRef.current = clearXNonce
+  }, [clearXNonce])
 
   const store = () => {
     if (improperOperation) return
@@ -834,11 +849,7 @@ function HP35({ resetNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) 
               {blueBtn(enterLabel, "ENTER", enter, "ENTER\uD83E\uDC6A")}
               {blueBtn(<span>CH{"\u2009"}S</span>, "CHS", () => operation("CHS"), "CHS")}
               {blueBtn(<span>E{"\u2009"}EX</span>, "EEX", () => operation("EEX"), "EEX")}
-              {blueBtn(clxLabel, "CLx", () => {
-                setImproperOperation(false)
-                setStack((prev) => ({ ...prev, x: 0 }))
-                resetEntryModes()
-              }, "CLx")}
+              {blueBtn(clxLabel, "CLx", clearXRegister, "CLx")}
             </div>
 
             {/* --- Engraved separator line --- */}
