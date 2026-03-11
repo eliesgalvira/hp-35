@@ -32,6 +32,7 @@ interface ChallengeModeProps {
   onStart: () => void
   onRepeat: () => void
   onEnd: () => void
+  onDisable: () => void
 }
 
 const cardPaperBackground = [
@@ -109,6 +110,7 @@ export function ChallengeMode({
   onStart,
   onRepeat,
   onEnd,
+  onDisable,
 }: ChallengeModeProps) {
   const [api, setApi] = useState<CarouselApi>()
   const [surfaceTone, setSurfaceTone] = useState<"base" | "success">("base")
@@ -373,6 +375,17 @@ export function ChallengeMode({
                                     onClick={onEnd}
                                   >
                                     End
+                                  </button>
+                                  <button
+                                    type="button"
+                                    data-testid="challenge-disable"
+                                    className={cn(
+                                      panelButtonClass,
+                                      "border-[#6b473a] bg-[rgba(34,14,11,0.82)] text-[#e8c8b4] hover:bg-[rgba(49,20,16,0.9)]"
+                                    )}
+                                    onClick={onDisable}
+                                  >
+                                    Disable challenge mode
                                   </button>
                                 </div>
                               </div>

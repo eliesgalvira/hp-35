@@ -83,6 +83,7 @@ describe("Challenge mode", () => {
         onStart={vi.fn()}
         onRepeat={vi.fn()}
         onEnd={vi.fn()}
+        onDisable={vi.fn()}
       />
     )
 
@@ -113,6 +114,7 @@ describe("Challenge mode", () => {
         onStart={vi.fn()}
         onRepeat={vi.fn()}
         onEnd={vi.fn()}
+        onDisable={vi.fn()}
       />
     )
 
@@ -143,6 +145,7 @@ describe("Challenge mode", () => {
         onStart={vi.fn()}
         onRepeat={vi.fn()}
         onEnd={vi.fn()}
+        onDisable={vi.fn()}
       />
     )
 

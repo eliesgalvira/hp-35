@@ -24,11 +24,24 @@ const pressChallenge = async (user: ReturnType<typeof userEvent.setup>, challeng
   }
 }
 
+const enableChallengeMode = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByTestId("challenge-enable"))
+  await screen.findByTestId("challenge-start", {}, { timeout: 2000 })
+}
+
 describe("HP35Experience integration", () => {
+  it("starts with challenge mode collapsed behind an enable button", () => {
+    render(<HP35Experience />)
+
+    expect(screen.getByTestId("challenge-enable")).toBeInTheDocument()
+    expect(screen.queryByTestId("challenge-start")).not.toBeInTheDocument()
+  })
+
   it("keeps the stack X register exactly in sync with the calculator display before challenge mode starts", async () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     expect(screen.getByTestId("challenge-start")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "5" }))
@@ -44,6 +57,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     await user.click(screen.getByRole("button", { name: "5" }))
     await user.click(screen.getByRole("button", { name: "5" }))
     await user.click(screen.getByRole("button", { name: "7" }))
@@ -59,6 +73,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     await user.click(screen.getByTestId("challenge-start"))
     await user.click(screen.getByRole("button", { name: "5" }))
     await user.click(screen.getByRole("button", { name: "5" }))
@@ -77,6 +92,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     await user.click(screen.getByTestId("challenge-start"))
     await user.click(screen.getByRole("button", { name: "0" }))
     await screen.findByTestId("challenge-end", {}, { timeout: 2000 })
@@ -92,6 +108,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     fireEvent.click(screen.getByTestId("challenge-start"))
     fireEvent.mouseDown(screen.getByRole("button", { name: "3" }))
 
@@ -106,6 +123,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     await user.click(screen.getByTestId("challenge-start"))
     await user.click(screen.getByRole("button", { name: "0" }))
     await screen.findByTestId("challenge-repeat", {}, { timeout: 2000 })
@@ -120,8 +138,10 @@ describe("HP35Experience integration", () => {
   })
 
   it("processes the first non-numeric key immediately after starting a challenge", async () => {
+    const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     fireEvent.click(screen.getByTestId("challenge-start"))
     fireEvent.mouseDown(screen.getByRole("button", { name: "ENTER🡪" }))
 
@@ -135,6 +155,7 @@ describe("HP35Experience integration", () => {
     const user = userEvent.setup()
     render(<HP35Experience />)
 
+    await enableChallengeMode(user)
     await user.click(screen.getByTestId("challenge-start"))
     await pressChallenge(user, 0)
 
@@ -150,6 +171,22 @@ describe("HP35Experience integration", () => {
     await waitFor(() => {
       expect(getDisplayParts("hp35-display")).toEqual({ sign: " ", mantissa: "0.         ", exponent: "   " })
       expect(screen.getByText("02 / 06")).toBeInTheDocument()
+    })
+  })
+
+  it("disables challenge mode from the failure state and collapses back to the enable button", async () => {
+    const user = userEvent.setup()
+    render(<HP35Experience />)
+
+    await enableChallengeMode(user)
+    await user.click(screen.getByTestId("challenge-start"))
+    await user.click(screen.getByRole("button", { name: "0" }))
+    await screen.findByTestId("challenge-disable", {}, { timeout: 2000 })
+    await user.click(screen.getByTestId("challenge-disable"))
+
+    await waitFor(() => {
+      expect(screen.getByTestId("challenge-enable")).toBeInTheDocument()
+      expect(screen.queryByTestId("challenge-start")).not.toBeInTheDocument()
     })
   })
 })
