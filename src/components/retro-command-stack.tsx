@@ -25,7 +25,7 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
   const shouldReduceMotion = useReducedMotion()
 
   return (
-    <aside className="w-full max-w-[380px] shrink-0">
+    <aside className="w-full max-w-[380px] lg:w-[380px] shrink-0">
       <div
         className="relative overflow-hidden rounded-[14px] border border-[#3a160f] bg-[#120403] p-3 shadow-[0_0_18px_rgba(255,58,20,0.08),inset_0_2px_10px_rgba(0,0,0,0.85),inset_0_-2px_8px_rgba(50,6,4,0.75)]"
         style={{
@@ -53,7 +53,7 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
             {rows.map((row, index) => (
               <div
                 key={row.label}
-                className="relative flex h-10 items-center gap-3 rounded-[8px] border border-[#2d0e09]/80 bg-[#170504]/75 px-3 shadow-[inset_0_1px_2px_rgba(255,140,100,0.03),inset_0_-2px_4px_rgba(0,0,0,0.55)]"
+                className="relative flex h-[46px] items-center gap-3 rounded-[8px] border border-[#2d0e09]/80 bg-[#170504]/75 px-3 shadow-[inset_0_1px_2px_rgba(255,140,100,0.03),inset_0_-2px_4px_rgba(0,0,0,0.55)]"
               >
                 <span className="w-5 text-[12px] font-semibold tracking-[0.28em] text-[#7d3b30]/85">{row.label}</span>
                 <div className="relative flex h-full min-w-0 flex-1 items-center">
@@ -72,7 +72,20 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                                 filter: ["brightness(0.82)", "brightness(1.18)", "brightness(0.94)", "brightness(1)"],
                             }
                       }
-                      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, filter: "brightness(0.75)" }}
+                      exit={
+                        row.empty
+                          ? {
+                              opacity: 0,
+                              transition: { duration: 0.01 },
+                            }
+                          : shouldReduceMotion
+                            ? { opacity: 0 }
+                            : {
+                                opacity: 0,
+                                y: 6,
+                                filter: "brightness(0.75)",
+                              }
+                      }
                       transition={
                         shouldReduceMotion
                           ? { duration: 0.14 }
@@ -86,26 +99,32 @@ export function RetroCommandStack({ rows }: RetroCommandStackProps) {
                     >
                       <SevenSegmentDisplay
                         display={row.empty ? { sign: "", mantissa: "", showExponent: false, exponentSign: " ", exponent: "" } : row.display}
-                        className="h-[1.05rem]"
+                        className="min-h-[30px]"
+                        testIdPrefix={`stack-display-${row.label.toLowerCase()}`}
                         sharedClassName="flex items-center justify-start"
                         sharedStyle={{
-                          fontSize: "1.05rem",
-                          fontWeight: 700,
+                          fontFamily: "'DSEG7', 'Courier New', monospace",
+                          fontSize: "19px",
+                          fontWeight: "bold",
                           letterSpacing: "1px",
                           lineHeight: 1,
-                          fontFamily: "'DSEG7', 'SFMono-Regular', Consolas, monospace",
+                          minHeight: "30px",
+                          paddingLeft: "2px",
+                          textAlign: "left",
+                          overflow: "visible",
                         }}
                         ghostClassName={`hp-led-ghost absolute inset-0 ${rowDepthClasses[index]}`}
                         ghostStyle={{
                           color: "rgba(200, 30, 0, 0.08)",
+                          pointerEvents: "none",
                         }}
                         activeClassName={rowDepthClasses[index]}
                         activeStyle={{
                           color: "#ff4b2b",
                           textShadow:
                             index === 0
-                              ? "0 0 5px rgba(255,59,31,0.9), 0 0 16px rgba(255,59,31,0.36)"
-                              : "0 0 4px rgba(255,59,31,0.55), 0 0 10px rgba(255,59,31,0.18)",
+                              ? "0 0 8px #ff2800, 0 0 20px rgba(255,40,0,0.5), 0 0 40px rgba(255,40,0,0.15)"
+                              : "0 0 6px rgba(255,40,0,0.72), 0 0 16px rgba(255,40,0,0.28)",
                         }}
                       />
                     </motion.div>

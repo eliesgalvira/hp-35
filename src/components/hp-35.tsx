@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type CSSProperties } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
 import type { StackRegisterRow } from "./retro-command-stack"
 import { SevenSegmentDisplay } from "./seven-segment-display"
 import { formatNumberToLedDisplay, type LedDisplayParts } from "../lib/hp-led-display"
@@ -13,10 +13,13 @@ interface StackState {
 }
 
 interface HP35Props {
+  resetNonce?: number
+  clearXNonce?: number
   onStackChange?: (rows: StackRegisterRow[]) => void
+  onButtonPress?: (token: string) => void
 }
 
-export default function HP35({ onStackChange }: HP35Props = {}) {
+function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
   const [stackDepth, setStackDepth] = useState(0)
   const [improperOperation, setImproperOperation] = useState(false)
@@ -35,6 +38,8 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
   const [eexSign, setEexSign] = useState<1 | -1>(1)
   const [arcActive, setArcActive] = useState(false)
   const [stackLift, setStackLift] = useState(false)
+  const lastResetNonceRef = useRef(resetNonce)
+  const lastClearXNonceRef = useRef(clearXNonce)
 
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
@@ -490,11 +495,31 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
 
   const clear = () => {
     setImproperOperation(false)
+    setImproperOperationVisible(true)
     setStack({ x: 0, y: 0, z: 0, t: 0 })
     setStackDepth(0)
     setMemory(0)
     resetEntryModes()
   }
+
+  const clearXRegister = () => {
+    setImproperOperation(false)
+    setImproperOperationVisible(true)
+    setStack((prev) => ({ ...prev, x: 0 }))
+    resetEntryModes()
+  }
+
+  useLayoutEffect(() => {
+    if (resetNonce === lastResetNonceRef.current) return
+    clear()
+    lastResetNonceRef.current = resetNonce
+  }, [resetNonce])
+
+  useLayoutEffect(() => {
+    if (clearXNonce === lastClearXNonceRef.current) return
+    clearXRegister()
+    lastClearXNonceRef.current = clearXNonce
+  }, [clearXNonce])
 
   const store = () => {
     if (improperOperation) return
@@ -519,26 +544,31 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
 
   /* --- Button factories --- */
 
-  const funcBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={action} className="hp-key-func flex items-center justify-center" aria-label={ariaLabel}>
+  const runButtonAction = (token: string, action: () => void) => () => {
+    onButtonPress?.(token)
+    action()
+  }
+
+  const funcBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token, action)} className="hp-key-func flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const blueBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={action} className="hp-key-blue flex items-center justify-center" aria-label={ariaLabel}>
+  const blueBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token, action)} className="hp-key-blue flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const numBtn = (label: string | React.ReactNode, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={action} className="hp-key-num flex items-center justify-center" aria-label={ariaLabel}>
+  const numBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token, action)} className="hp-key-num flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const opBtn = (label: string, action: () => void) => (
-    <button onMouseDown={action} className="hp-key-op flex items-center justify-center">
+  const opBtn = (label: string, token: string, action: () => void) => (
+    <button onMouseDown={runButtonAction(token, action)} className="hp-key-op flex items-center justify-center">
       {label}
     </button>
   )
@@ -751,11 +781,11 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(xyLabel, () => operation("x^y"), "x^y")}
-              {funcBtn(<span className={lc}>log</span>, () => operation("log"), "log")}
-              {funcBtn(<span className={lc}>ln</span>, () => operation("ln"), "ln")}
-              {funcBtn(expLabel, () => operation("e^x"), "e^x")}
-              {blueBtn("CLR", clear)}
+              {funcBtn(xyLabel, "x^y", () => operation("x^y"), "x^y")}
+              {funcBtn(<span className={lc}>log</span>, "log", () => operation("log"), "log")}
+              {funcBtn(<span className={lc}>ln</span>, "ln", () => operation("ln"), "ln")}
+              {funcBtn(expLabel, "e^x", () => operation("e^x"), "e^x")}
+              {blueBtn("CLR", "CLR", clear)}
             </div>
 
             {/* --- Function Keys Row 2: sqrt(x)  arc  sin  cos  tan --- */}
@@ -767,11 +797,11 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(sqrtLabel, () => operation("\u221Ax"), "\u221Ax")}
-              {funcBtn(<span className={lc}>arc</span>, () => operation("arc"), "arc")}
-              {funcBtn(<span className={lc}>sin</span>, () => operation("sin"), "sin")}
-              {funcBtn(<span className={lc}>cos</span>, () => operation("cos"), "cos")}
-              {funcBtn(<span className={lc}>tan</span>, () => operation("tan"), "tan")}
+              {funcBtn(sqrtLabel, "√x", () => operation("\u221Ax"), "\u221Ax")}
+              {funcBtn(<span className={lc}>arc</span>, "arc", () => operation("arc"), "arc")}
+              {funcBtn(<span className={lc}>sin</span>, "sin", () => operation("sin"), "sin")}
+              {funcBtn(<span className={lc}>cos</span>, "cos", () => operation("cos"), "cos")}
+              {funcBtn(<span className={lc}>tan</span>, "tan", () => operation("tan"), "tan")}
             </div>
 
             {/* --- Function Keys Row 3: 1/x  x⮂y  R🠟  STO  RCL --- */}
@@ -783,9 +813,9 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(oneOverXLabel, () => operation("1/x"), "1/x")}
-              {funcBtn(swapLabel, () => operation("x\u2B82y"), "x\u2B82y")}
-              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, () => {
+              {funcBtn(oneOverXLabel, "1/x", () => operation("1/x"), "1/x")}
+              {funcBtn(swapLabel, "x⮂y", () => operation("x\u2B82y"), "x\u2B82y")}
+              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, "R🠟", () => {
                 if (improperOperation) return
                 setStack((prev) => ({
                   x: prev.y,
@@ -803,8 +833,8 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 setEexMantissaText("")
                 setPendingSign(null)
               }, "R\uD83E\uDC1F")}
-              {funcBtn("STO", store)}
-              {funcBtn("RCL", recall)}
+              {funcBtn("STO", "STO", store)}
+              {funcBtn("RCL", "RCL", recall)}
             </div>
 
             {/* --- Action row: ENTER  CHS  EEX  CLx --- */}
@@ -816,14 +846,10 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 marginBottom: "14px",
               }}
             >
-              {blueBtn(enterLabel, enter, "ENTER\uD83E\uDC6A")}
-              {blueBtn(<span>CH{"\u2009"}S</span>, () => operation("CHS"), "CHS")}
-              {blueBtn(<span>E{"\u2009"}EX</span>, () => operation("EEX"), "EEX")}
-              {blueBtn(clxLabel, () => {
-                setImproperOperation(false)
-                setStack((prev) => ({ ...prev, x: 0 }))
-                resetEntryModes()
-              }, "CLx")}
+              {blueBtn(enterLabel, "ENTER", enter, "ENTER\uD83E\uDC6A")}
+              {blueBtn(<span>CH{"\u2009"}S</span>, "CHS", () => operation("CHS"), "CHS")}
+              {blueBtn(<span>E{"\u2009"}EX</span>, "EEX", () => operation("EEX"), "EEX")}
+              {blueBtn(clxLabel, "CLx", clearXRegister, "CLx")}
             </div>
 
             {/* --- Engraved separator line --- */}
@@ -852,25 +878,25 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
                 gap: "5px",
               }}
             >
-              {opBtn("\u2212", () => operation("-"))}
-              {numBtn("7", () => inputDigit("7"))}
-              {numBtn("8", () => inputDigit("8"))}
-              {numBtn("9", () => inputDigit("9"))}
+              {opBtn("\u2212", "-", () => operation("-"))}
+              {numBtn("7", "7", () => inputDigit("7"))}
+              {numBtn("8", "8", () => inputDigit("8"))}
+              {numBtn("9", "9", () => inputDigit("9"))}
 
-              {opBtn("+", () => operation("+"))}
-              {numBtn("4", () => inputDigit("4"))}
-              {numBtn("5", () => inputDigit("5"))}
-              {numBtn("6", () => inputDigit("6"))}
+              {opBtn("+", "+", () => operation("+"))}
+              {numBtn("4", "4", () => inputDigit("4"))}
+              {numBtn("5", "5", () => inputDigit("5"))}
+              {numBtn("6", "6", () => inputDigit("6"))}
 
-              {opBtn("\u00D7", () => operation("\u00D7"))}
-              {numBtn("1", () => inputDigit("1"))}
-              {numBtn("2", () => inputDigit("2"))}
-              {numBtn("3", () => inputDigit("3"))}
+              {opBtn("\u00D7", "×", () => operation("\u00D7"))}
+              {numBtn("1", "1", () => inputDigit("1"))}
+              {numBtn("2", "2", () => inputDigit("2"))}
+              {numBtn("3", "3", () => inputDigit("3"))}
 
-              {opBtn("\u00F7", () => operation("\u00F7"))}
-              {numBtn("0", () => inputDigit("0"))}
-              {numBtn(".", inputDecimal)}
-              {numBtn(piLabel, () => inputDigit("\u03C0"), "\u03C0")}
+              {opBtn("\u00F7", "÷", () => operation("\u00F7"))}
+              {numBtn("0", "0", () => inputDigit("0"))}
+              {numBtn(".", ".", inputDecimal)}
+              {numBtn(piLabel, "π", () => inputDigit("\u03C0"), "\u03C0")}
             </div>
           </div>
 
@@ -951,3 +977,5 @@ export default function HP35({ onStackChange }: HP35Props = {}) {
     </div>
   )
 }
+
+export default HP35

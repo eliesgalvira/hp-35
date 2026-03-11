@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { challengeDeck } from "../challenge-data"
 import HP35 from "../hp-35"
 import type { StackRegisterRow } from "../retro-command-stack"
 
@@ -57,6 +58,16 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
   for (const label of labels) {
     await press(user, label)
   }
+}
+
+const labelForChallengeToken = (token: string) => {
+  if (token === "ENTER") return "ENTER🡪"
+  return token
+}
+
+const precisionForChallengeAnswer = (challengeId: string) => {
+  if (challengeId === "celestial-fix") return 5
+  return 8
 }
 
 const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
@@ -126,6 +137,22 @@ describe("HP-35 behavior", () => {
     ])
   })
 
+  it("publishes stack updates on mouse down", async () => {
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    fireEvent.mouseDown(screen.getByRole("button", { name: "7" }))
+
+    await waitFor(() =>
+      expect(latestRows(onStackChangeCalls)).toEqual([
+        makeRow("X", "7.", false),
+        makeRow("Y", "0.", true),
+        makeRow("Z", "0.", true),
+        makeRow("T", "0.", true),
+      ])
+    )
+  })
+
   it("enters digits left-justified with a trailing decimal", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
@@ -151,6 +178,14 @@ describe("HP-35 behavior", () => {
     await pressSequence(user, ["\u03C0"])
     expectDisplay({ sign: " ", mantissa: "3.141592654" })
     expectFixedDisplay()
+  })
+
+  it.each(challengeDeck)("executes the $title challenge to the documented answer", async (challenge) => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    await pressSequence(user, challenge.steps.map(labelForChallengeToken))
+    expect(displayNumber()).toBeCloseTo(Number(challenge.answer), precisionForChallengeAnswer(challenge.id))
   })
 
   it("uses X as base for x^y", async () => {
