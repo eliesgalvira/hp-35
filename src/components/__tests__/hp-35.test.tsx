@@ -65,6 +65,11 @@ const labelForChallengeToken = (token: string) => {
   return token
 }
 
+const precisionForChallengeAnswer = (challengeId: string) => {
+  if (challengeId === "celestial-fix") return 5
+  return 8
+}
+
 const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
 
 const makeRow = (
@@ -175,15 +180,12 @@ describe("HP-35 behavior", () => {
     expectFixedDisplay()
   })
 
-  it("executes the fraction weave challenge to the documented answer", async () => {
+  it.each(challengeDeck)("executes the $title challenge to the documented answer", async (challenge) => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    const challenge = challengeDeck.find(({ id }) => id === "fraction-weave")
-    expect(challenge).toBeDefined()
-
-    await pressSequence(user, challenge!.steps.map(labelForChallengeToken))
-    expect(displayNumber()).toBeCloseTo(Number(challenge!.answer), 8)
+    await pressSequence(user, challenge.steps.map(labelForChallengeToken))
+    expect(displayNumber()).toBeCloseTo(Number(challenge.answer), precisionForChallengeAnswer(challenge.id))
   })
 
   it("uses X as base for x^y", async () => {
