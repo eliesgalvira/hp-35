@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { challengeDeck } from "../challenge-data"
 import HP35 from "../hp-35"
 import type { StackRegisterRow } from "../retro-command-stack"
 
@@ -57,6 +58,11 @@ const pressSequence = async (user: ReturnType<typeof userEvent.setup>, labels: s
   for (const label of labels) {
     await press(user, label)
   }
+}
+
+const labelForChallengeToken = (token: string) => {
+  if (token === "ENTER") return "ENTER🡪"
+  return token
 }
 
 const latestRows = (calls: StackRegisterRow[][]) => calls.at(-1) ?? []
@@ -167,6 +173,17 @@ describe("HP-35 behavior", () => {
     await pressSequence(user, ["\u03C0"])
     expectDisplay({ sign: " ", mantissa: "3.141592654" })
     expectFixedDisplay()
+  })
+
+  it("executes the fraction weave challenge to the documented answer", async () => {
+    const user = userEvent.setup()
+    render(<HP35 />)
+
+    const challenge = challengeDeck.find(({ id }) => id === "fraction-weave")
+    expect(challenge).toBeDefined()
+
+    await pressSequence(user, challenge!.steps.map(labelForChallengeToken))
+    expect(displayNumber()).toBeCloseTo(Number(challenge!.answer), 8)
   })
 
   it("uses X as base for x^y", async () => {
