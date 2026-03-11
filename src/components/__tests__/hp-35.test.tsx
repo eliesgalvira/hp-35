@@ -126,6 +126,20 @@ describe("HP-35 behavior", () => {
     ])
   })
 
+  it("publishes stack updates on mouse down", () => {
+    const onStackChangeCalls: StackRegisterRow[][] = []
+    render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
+
+    fireEvent.mouseDown(screen.getByRole("button", { name: "7" }))
+
+    expect(latestRows(onStackChangeCalls)).toEqual([
+      makeRow("X", "7.", false),
+      makeRow("Y", "0.", true),
+      makeRow("Z", "0.", true),
+      makeRow("T", "0.", true),
+    ])
+  })
+
   it("enters digits left-justified with a trailing decimal", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
