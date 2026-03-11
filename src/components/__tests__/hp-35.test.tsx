@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { act, fireEvent, render, screen } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import HP35 from "../hp-35"
 import type { StackRegisterRow } from "../retro-command-stack"
@@ -126,18 +126,20 @@ describe("HP-35 behavior", () => {
     ])
   })
 
-  it("publishes stack updates on mouse down", () => {
+  it("publishes stack updates on mouse down", async () => {
     const onStackChangeCalls: StackRegisterRow[][] = []
     render(<HP35 onStackChange={(rows) => onStackChangeCalls.push(rows)} />)
 
     fireEvent.mouseDown(screen.getByRole("button", { name: "7" }))
 
-    expect(latestRows(onStackChangeCalls)).toEqual([
-      makeRow("X", "7.", false),
-      makeRow("Y", "0.", true),
-      makeRow("Z", "0.", true),
-      makeRow("T", "0.", true),
-    ])
+    await waitFor(() =>
+      expect(latestRows(onStackChangeCalls)).toEqual([
+        makeRow("X", "7.", false),
+        makeRow("Y", "0.", true),
+        makeRow("Z", "0.", true),
+        makeRow("T", "0.", true),
+      ])
+    )
   })
 
   it("enters digits left-justified with a trailing decimal", async () => {

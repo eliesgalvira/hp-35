@@ -1,12 +1,9 @@
 "use client"
 
-import { challengeDeck } from "@/components/challenge-data"
-
 export type ChallengePhase = "start" | "active" | "failed" | "success"
 export type ChallengeFlash = "idle" | "success" | "error"
 
 export interface ChallengeMachineState {
-  selectedIndex: number
   hasStarted: boolean
   phase: ChallengePhase
   attemptIndex: number
@@ -17,17 +14,12 @@ export interface ChallengeMachineState {
 }
 
 export type ChallengeMachineAction =
-  | { type: "start"; currentInputNonce?: number }
-  | { type: "repeat"; currentInputNonce?: number }
+  | { type: "start"; challengeId: string; currentInputNonce?: number }
+  | { type: "repeat"; challengeId: string; currentInputNonce?: number }
   | { type: "end"; currentInputNonce?: number }
-  | { type: "input"; token: string; nonce: number }
-  | { type: "scroll_to"; index: number }
-  | { type: "sync_index"; index: number }
+  | { type: "input"; challengeId: string; steps: string[]; token: string; nonce: number }
+  | { type: "select"; challengeId: string }
   | { type: "clear_flash" }
-
-const getChallengeAtIndex = (index: number) => challengeDeck[Math.max(0, Math.min(index, challengeDeck.length - 1))] ?? challengeDeck[0]
-
-const getSelectedChallenge = (state: ChallengeMachineState) => getChallengeAtIndex(state.selectedIndex)
 
 const getChallengePhase = (hasStarted: boolean, completed: boolean): ChallengePhase =>
   completed ? "success" : hasStarted ? "active" : "start"
@@ -36,7 +28,6 @@ const getLastHandledNonce = (state: ChallengeMachineState, currentInputNonce?: n
   Math.max(state.lastHandledNonce, currentInputNonce ?? state.lastHandledNonce)
 
 export const createInitialChallengeMachineState = (): ChallengeMachineState => ({
-  selectedIndex: 0,
   hasStarted: false,
   phase: "start",
   attemptIndex: 0,
@@ -53,12 +44,10 @@ export function challengeModeReducer(
   switch (action.type) {
     case "start":
     case "repeat": {
-      const selectedChallenge = getSelectedChallenge(state)
-
       return {
         ...state,
         hasStarted: true,
-        phase: getChallengePhase(true, Boolean(state.completedCards[selectedChallenge.id])),
+        phase: getChallengePhase(true, Boolean(state.completedCards[action.challengeId])),
         attemptIndex: 0,
         lastHandledNonce: getLastHandledNonce(state, action.currentInputNonce),
         flash: "idle",
@@ -68,7 +57,6 @@ export function challengeModeReducer(
     case "end":
       return {
         ...state,
-        selectedIndex: 0,
         hasStarted: false,
         phase: "start",
         attemptIndex: 0,
@@ -82,8 +70,7 @@ export function challengeModeReducer(
         return state
       }
 
-      const selectedChallenge = getSelectedChallenge(state)
-      const expectedToken = selectedChallenge.steps[state.attemptIndex]
+      const expectedToken = action.steps[state.attemptIndex]
 
       if (!expectedToken) {
         return {
@@ -104,14 +91,14 @@ export function challengeModeReducer(
 
       const nextAttemptIndex = state.attemptIndex + 1
 
-      if (nextAttemptIndex >= selectedChallenge.steps.length) {
+      if (nextAttemptIndex >= action.steps.length) {
         return {
           ...state,
           phase: "success",
           attemptIndex: nextAttemptIndex,
           completedCards: {
             ...state.completedCards,
-            [selectedChallenge.id]: true,
+            [action.challengeId]: true,
           },
           lastHandledNonce: action.nonce,
           flash: "success",
@@ -126,23 +113,13 @@ export function challengeModeReducer(
       }
     }
 
-    case "scroll_to":
-    case "sync_index": {
-      if (state.phase !== "success") {
-        return state
-      }
-
-      const nextIndex = Math.max(0, Math.min(action.index, challengeDeck.length - 1))
-      const nextChallenge = getChallengeAtIndex(nextIndex)
-
+    case "select":
       return {
         ...state,
-        selectedIndex: nextIndex,
         attemptIndex: 0,
-        phase: getChallengePhase(state.hasStarted, Boolean(state.completedCards[nextChallenge.id])),
+        phase: getChallengePhase(state.hasStarted, Boolean(state.completedCards[action.challengeId])),
         flash: "idle",
       }
-    }
 
     case "clear_flash":
       if (state.flash === "idle") return state

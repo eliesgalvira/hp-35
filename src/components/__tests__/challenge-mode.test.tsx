@@ -1,9 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
 import { challengeDeck } from "../challenge-data"
-import { ChallengeMode, type ChallengeInputEvent } from "../challenge-mode"
+import { ChallengeMode } from "../challenge-mode"
+import { createInitialChallengeMachineState } from "../challenge-mode-machine"
 
 class ResizeObserverMock {
   observe() {}
@@ -74,7 +75,16 @@ beforeAll(() => {
 
 describe("Challenge mode", () => {
   it("renders in start mode with navigation locked", () => {
-    render(<ChallengeMode />)
+    render(
+      <ChallengeMode
+        selectedIndex={0}
+        state={createInitialChallengeMachineState()}
+        onSelectIndex={vi.fn()}
+        onStart={vi.fn()}
+        onRepeat={vi.fn()}
+        onEnd={vi.fn()}
+      />
+    )
 
     expect(screen.getByText("Challenge Mode")).toBeInTheDocument()
     expect(screen.getByText(challengeDeck[0].expression)).toBeInTheDocument()
@@ -83,57 +93,67 @@ describe("Challenge mode", () => {
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
   })
 
-  it("shows repeat and end controls after a wrong keypress", async () => {
+  it("shows repeat and end controls after a failed attempt", async () => {
     const user = userEvent.setup()
-    let input: ChallengeInputEvent | null = null
-    const { rerender } = render(<ChallengeMode calculatorInput={input} />)
+    const onRepeat = vi.fn()
+    const onEnd = vi.fn()
 
-    const send = (token: string) => {
-      input = { token, nonce: (input?.nonce ?? 0) + 1 }
-      rerender(<ChallengeMode calculatorInput={input} />)
-    }
-
-    await user.click(screen.getByTestId("challenge-start"))
-    send("0")
+    render(
+      <ChallengeMode
+        selectedIndex={0}
+        state={{
+          ...createInitialChallengeMachineState(),
+          hasStarted: true,
+          phase: "failed",
+          flash: "error",
+          flashNonce: 1,
+        }}
+        onSelectIndex={vi.fn()}
+        onStart={vi.fn()}
+        onRepeat={onRepeat}
+        onEnd={onEnd}
+      />
+    )
 
     expect(screen.getByTestId("challenge-repeat")).toBeInTheDocument()
     expect(screen.getByTestId("challenge-end")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
 
     await user.click(screen.getByTestId("challenge-end"))
-    expect(screen.getByTestId("challenge-start")).toBeInTheDocument()
-    expect(screen.getByText("01 / 06")).toBeInTheDocument()
-
-    await user.click(screen.getByTestId("challenge-start"))
-    send("0")
     await user.click(screen.getByTestId("challenge-repeat"))
-    await waitFor(() => expect(screen.queryByTestId("challenge-repeat")).not.toBeInTheDocument())
+
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(onRepeat).toHaveBeenCalledTimes(1)
   })
 
-  it("flips the solved card and unlocks the next slide", async () => {
+  it("flips the solved card and allows moving to the next slide", async () => {
     const user = userEvent.setup()
-    let input: ChallengeInputEvent | null = null
-    const { rerender } = render(<ChallengeMode calculatorInput={input} />)
+    const onSelectIndex = vi.fn()
 
-    const send = (token: string) => {
-      input = { token, nonce: (input?.nonce ?? 0) + 1 }
-      rerender(<ChallengeMode calculatorInput={input} />)
-    }
-
-    await user.click(screen.getByTestId("challenge-start"))
-
-    for (const token of challengeDeck[0].steps) {
-      send(token)
-    }
-
-    await waitFor(() =>
-      expect(screen.getByTestId(`challenge-card-${challengeDeck[0].id}`)).toHaveAttribute("data-flipped", "true")
+    render(
+      <ChallengeMode
+        selectedIndex={0}
+        state={{
+          ...createInitialChallengeMachineState(),
+          hasStarted: true,
+          phase: "success",
+          attemptIndex: challengeDeck[0].steps.length,
+          completedCards: { [challengeDeck[0].id]: true },
+          flash: "success",
+          flashNonce: 1,
+        }}
+        onSelectIndex={onSelectIndex}
+        onStart={vi.fn()}
+        onRepeat={vi.fn()}
+        onEnd={vi.fn()}
+      />
     )
+
+    expect(screen.getByTestId(`challenge-card-${challengeDeck[0].id}`)).toHaveAttribute("data-flipped", "true")
     expect(screen.getByRole("button", { name: "Next slide" })).toBeEnabled()
 
     await user.click(screen.getByRole("button", { name: "Next slide" }))
-    await waitFor(() => expect(screen.getByText("02 / 06")).toBeInTheDocument())
-    expect(screen.queryByTestId("challenge-start")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
+
+    expect(onSelectIndex).toHaveBeenCalledWith(1)
   })
 })

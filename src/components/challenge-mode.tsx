@@ -1,14 +1,11 @@
 "use client"
 
 import { LiquidGlass } from "@creativoma/liquid-glass"
-import { useEffect, useMemo, useReducer, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Telescope } from "lucide-react"
 
 import { challengeDeck } from "@/components/challenge-data"
-import {
-  challengeModeReducer,
-  createInitialChallengeMachineState,
-} from "@/components/challenge-mode-machine"
+import type { ChallengeMachineState } from "@/components/challenge-mode-machine"
 import {
   Carousel,
   CarouselContent,
@@ -19,15 +16,14 @@ import {
 } from "@/components/ui/carousel"
 import { cn } from "@/lib/utils"
 
-export interface ChallengeInputEvent {
-  token: string
-  nonce: number
-}
-
 interface ChallengeModeProps {
   className?: string
-  calculatorInput?: ChallengeInputEvent | null
-  onChallengeReset?: () => void
+  selectedIndex: number
+  state: ChallengeMachineState
+  onSelectIndex: (index: number) => void
+  onStart: () => void
+  onRepeat: () => void
+  onEnd: () => void
 }
 
 const cardPaperBackground = [
@@ -37,7 +33,10 @@ const cardPaperBackground = [
 ].join(",")
 
 const panelButtonClass =
-  "inline-flex items-center justify-center rounded-[10px] border border-[#60281b] bg-[linear-gradient(180deg,#3f120d_0%,#240806_100%)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#e4c4aa] shadow-[0_0_18px_rgba(255,58,20,0.08),inset_0_1px_0_rgba(255,180,140,0.05),inset_0_-2px_6px_rgba(0,0,0,0.55)] transition-colors hover:bg-[linear-gradient(180deg,#5a1b13_0%,#2d0907_100%)] disabled:cursor-not-allowed disabled:opacity-35"
+  "inline-flex items-center justify-center rounded-[10px] border border-[#60281b] bg-[linear-gradient(180deg,#3f120d_0%,#240806_100%)] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#e4c4aa] shadow-[0_0_18px_rgba(255,58,20,0.08),inset_0_1px_0_rgba(255,180,140,0.05),inset_0_-2px_6px_rgba(0,0,0,0.55)] transition-colors hover:border-[#874330] hover:bg-[linear-gradient(180deg,#5a1b13_0%,#2d0907_100%)] hover:text-[#f1dcc2] disabled:cursor-not-allowed disabled:opacity-35"
+
+const lockedCarouselOptions = { align: "start" as const, loop: false, watchDrag: false }
+const unlockedCarouselOptions = { align: "start" as const, loop: false, watchDrag: true }
 
 function ChallengeGlassOverlay({
   children,
@@ -54,15 +53,15 @@ function ChallengeGlassOverlay({
         displacementScale={110}
         turbulenceBaseFrequency="0.008 0.012"
         turbulenceSeed={4}
-        className="absolute inset-0 rounded-[18px] border border-[rgba(255,233,205,0.18)]"
+        className="pointer-events-none absolute inset-0 rounded-[18px] border border-[rgba(255,233,205,0.18)]"
         style={{
           background:
             "linear-gradient(180deg, rgba(255,250,244,0.06) 0%, rgba(255,250,244,0.1) 100%)",
         }}
       />
       <div className="pointer-events-none absolute inset-0 rounded-[18px] bg-[linear-gradient(180deg,rgba(255,248,236,0.08),rgba(32,10,7,0.16))]" />
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="mx-6 flex min-w-[200px] max-w-[230px] flex-col items-center gap-3 rounded-[24px] border border-[rgba(201,181,152,0.6)] bg-[rgba(236,224,202,0.72)] px-6 py-5 shadow-[0_24px_54px_rgba(25,7,5,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-[1px]">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="pointer-events-auto mx-6 flex min-w-[200px] max-w-[230px] flex-col items-center gap-3 rounded-[24px] border border-[rgba(201,181,152,0.6)] bg-[rgba(236,224,202,0.72)] px-6 py-5 shadow-[0_24px_54px_rgba(25,7,5,0.28),inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-[1px]">
         {children}
         </div>
       </div>
@@ -70,88 +69,57 @@ function ChallengeGlassOverlay({
   )
 }
 
-export function ChallengeMode({ className, calculatorInput = null, onChallengeReset }: ChallengeModeProps) {
+export function ChallengeMode({
+  className,
+  selectedIndex,
+  state,
+  onSelectIndex,
+  onStart,
+  onRepeat,
+  onEnd,
+}: ChallengeModeProps) {
   const [api, setApi] = useState<CarouselApi>()
-  const [state, dispatch] = useReducer(challengeModeReducer, undefined, createInitialChallengeMachineState)
-  const optimisticSlideIndex = useRef<number | null>(null)
+  const activeChallengeIndex = Number.isFinite(selectedIndex)
+    ? Math.max(0, Math.min(selectedIndex, challengeDeck.length - 1))
+    : 0
 
-  useEffect(() => {
-    if (!api) return
-
-    const updateSelection = () => {
-      const nextIndex = api.selectedScrollSnap()
-
-      if (optimisticSlideIndex.current !== null && nextIndex !== optimisticSlideIndex.current) {
-        return
-      }
-
-      optimisticSlideIndex.current = null
-      dispatch({ type: "sync_index", index: nextIndex })
-    }
-
-    updateSelection()
-    api.on("select", updateSelection)
-    api.on("reInit", updateSelection)
-
-    return () => {
-      api.off("select", updateSelection)
-      api.off("reInit", updateSelection)
-    }
-  }, [api])
-
-  useEffect(() => {
-    if (optimisticSlideIndex.current === null) return
-
-    const timeout = window.setTimeout(() => {
-      optimisticSlideIndex.current = null
-    }, 250)
-
-    return () => window.clearTimeout(timeout)
-  }, [state.selectedIndex])
-
-  const selectedChallenge = useMemo(
-    () => challengeDeck[state.selectedIndex] ?? challengeDeck[0],
-    [state.selectedIndex]
-  )
-
-  useEffect(() => {
-    if (state.flash === "idle") return
-
-    const timeout = window.setTimeout(() => {
-      dispatch({ type: "clear_flash" })
-    }, 650)
-
-    return () => window.clearTimeout(timeout)
-  }, [state.flash, state.flashNonce])
-
-  useEffect(() => {
-    if (!calculatorInput) return
-    dispatch({ type: "input", token: calculatorInput.token, nonce: calculatorInput.nonce })
-  }, [calculatorInput])
+  const selectedChallenge = challengeDeck[activeChallengeIndex] ?? challengeDeck[0]
 
   const canAdvance = state.phase === "success"
   const isFailed = state.phase === "failed"
   const isBlurredPreview = state.phase === "start"
+  const carouselOptions = canAdvance ? unlockedCarouselOptions : lockedCarouselOptions
+
+  useEffect(() => {
+    if (!api || !canAdvance) return
+
+    const updateSelection = () => {
+      const nextIndex = api.selectedScrollSnap()
+      if (!Number.isFinite(nextIndex)) return
+      if (nextIndex !== activeChallengeIndex) {
+        onSelectIndex(nextIndex)
+      }
+    }
+
+    api.on("select", updateSelection)
+
+    return () => {
+      api.off("select", updateSelection)
+    }
+  }, [activeChallengeIndex, api, canAdvance, onSelectIndex])
+
+  useEffect(() => {
+    if (!api) return
+    if (api.selectedScrollSnap() !== activeChallengeIndex) {
+      api.scrollTo(activeChallengeIndex)
+    }
+  }, [activeChallengeIndex, api])
 
   const scrollToIndex = (index: number) => {
     if (!canAdvance) return
 
     const nextIndex = Math.max(0, Math.min(index, challengeDeck.length - 1))
-    optimisticSlideIndex.current = nextIndex
-    dispatch({ type: "scroll_to", index: nextIndex })
-    api?.scrollTo(nextIndex)
-  }
-
-  const startCurrentChallenge = () => {
-    onChallengeReset?.()
-    dispatch({ type: "start", currentInputNonce: calculatorInput?.nonce })
-  }
-
-  const endCurrentChallenge = () => {
-    onChallengeReset?.()
-    optimisticSlideIndex.current = 0
-    api?.scrollTo(0)
-    dispatch({ type: "end", currentInputNonce: calculatorInput?.nonce })
+    onSelectIndex(nextIndex)
   }
 
   const isNumericStep = (step: string) => /^[0-9.]$|^π$/u.test(step)
@@ -184,19 +152,19 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
             </div>
 
             <div className="rounded-full border border-[#6d3624]/90 bg-[#26100c]/80 px-3 py-1 text-[10px] tracking-[0.28em] text-[#d5ae8b]">
-              {String(state.selectedIndex + 1).padStart(2, "0")} / {String(challengeDeck.length).padStart(2, "0")}
+              {String(activeChallengeIndex + 1).padStart(2, "0")} / {String(challengeDeck.length).padStart(2, "0")}
             </div>
           </div>
 
           <div className="relative">
             <Carousel
               setApi={setApi}
-              opts={{ align: "start", loop: false, watchDrag: canAdvance }}
+              opts={carouselOptions}
               className="w-full"
             >
               <CarouselContent className="-ml-0">
                 {challengeDeck.map((challenge, index) => {
-                  const isSelected = index === state.selectedIndex
+                  const isSelected = index === activeChallengeIndex
                   const isFlipped = Boolean(state.completedCards[challenge.id])
                   const showFailureOverlay = isSelected && isFailed
                   const showStartOverlay = isSelected && isBlurredPreview
@@ -310,7 +278,7 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
                                   type="button"
                                   data-testid="challenge-repeat"
                                   className={panelButtonClass}
-                                  onClick={startCurrentChallenge}
+                                  onClick={onRepeat}
                                 >
                                   Repeat
                                 </button>
@@ -318,7 +286,7 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
                                   type="button"
                                   data-testid="challenge-end"
                                   className={panelButtonClass}
-                                  onClick={endCurrentChallenge}
+                                  onClick={onEnd}
                                 >
                                   End
                                 </button>
@@ -336,7 +304,7 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
                                   type="button"
                                   data-testid="challenge-start"
                                   className={panelButtonClass}
-                                  onClick={startCurrentChallenge}
+                                  onClick={onStart}
                                 >
                                   Start
                                 </button>
@@ -353,7 +321,7 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
               <div className="flex items-center justify-between gap-3 pt-4">
                 <div className="flex items-center gap-2">
                   {challengeDeck.map((challenge, index) => {
-                    const isActive = index === state.selectedIndex
+                    const isActive = index === activeChallengeIndex
 
                     return (
                       <button
@@ -377,14 +345,14 @@ export function ChallengeMode({ className, calculatorInput = null, onChallengeRe
                 <div className="flex items-center gap-2">
                   <CarouselPrevious
                     variant="ghost"
-                    disabled={!canAdvance || state.selectedIndex === 0}
-                    onClick={() => scrollToIndex(state.selectedIndex - 1)}
+                    disabled={!canAdvance || activeChallengeIndex === 0}
+                    onClick={() => scrollToIndex(activeChallengeIndex - 1)}
                     className="static translate-y-0 border border-[#5c2c1f] bg-[#24100c] text-[#e7c9ab] hover:bg-[#351610] hover:text-[#f1dcc2] disabled:opacity-35"
                   />
                   <CarouselNext
                     variant="ghost"
-                    disabled={!canAdvance || state.selectedIndex === challengeDeck.length - 1}
-                    onClick={() => scrollToIndex(state.selectedIndex + 1)}
+                    disabled={!canAdvance || activeChallengeIndex === challengeDeck.length - 1}
+                    onClick={() => scrollToIndex(activeChallengeIndex + 1)}
                     className="static translate-y-0 border border-[#5c2c1f] bg-[#24100c] text-[#e7c9ab] hover:bg-[#351610] hover:text-[#f1dcc2] disabled:opacity-35"
                   />
                 </div>

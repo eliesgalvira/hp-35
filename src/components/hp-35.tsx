@@ -1,6 +1,6 @@
 "use client"
 
-import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useState, type CSSProperties } from "react"
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
 import type { StackRegisterRow } from "./retro-command-stack"
 import { SevenSegmentDisplay } from "./seven-segment-display"
 import { formatNumberToLedDisplay, type LedDisplayParts } from "../lib/hp-led-display"
@@ -13,15 +13,12 @@ interface StackState {
 }
 
 interface HP35Props {
+  resetNonce?: number
   onStackChange?: (rows: StackRegisterRow[]) => void
   onButtonPress?: (token: string) => void
 }
 
-export interface HP35Handle {
-  pressClear: () => void
-}
-
-const HP35 = forwardRef<HP35Handle, HP35Props>(function HP35({ onStackChange, onButtonPress }: HP35Props = {}, ref) {
+function HP35({ resetNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) {
   const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
   const [stackDepth, setStackDepth] = useState(0)
   const [improperOperation, setImproperOperation] = useState(false)
@@ -40,6 +37,7 @@ const HP35 = forwardRef<HP35Handle, HP35Props>(function HP35({ onStackChange, on
   const [eexSign, setEexSign] = useState<1 | -1>(1)
   const [arcActive, setArcActive] = useState(false)
   const [stackLift, setStackLift] = useState(false)
+  const lastResetNonceRef = useRef(resetNonce)
 
   /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
 
@@ -91,7 +89,7 @@ const HP35 = forwardRef<HP35Handle, HP35Props>(function HP35({ onStackChange, on
     return () => window.clearInterval(interval)
   }, [improperOperation])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!onStackChange) return
     const registerValues = [stack.x, stack.y, stack.z, stack.t]
     const labels: StackRegisterRow["label"][] = ["X", "Y", "Z", "T"]
@@ -502,9 +500,11 @@ const HP35 = forwardRef<HP35Handle, HP35Props>(function HP35({ onStackChange, on
     resetEntryModes()
   }
 
-  useImperativeHandle(ref, () => ({
-    pressClear: clear,
-  }))
+  useLayoutEffect(() => {
+    if (resetNonce === lastResetNonceRef.current) return
+    clear()
+    lastResetNonceRef.current = resetNonce
+  }, [resetNonce])
 
   const store = () => {
     if (improperOperation) return
@@ -965,6 +965,6 @@ const HP35 = forwardRef<HP35Handle, HP35Props>(function HP35({ onStackChange, on
       </div>
     </div>
   )
-})
+}
 
 export default HP35

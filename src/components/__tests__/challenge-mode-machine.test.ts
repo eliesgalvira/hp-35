@@ -9,7 +9,6 @@ import {
 describe("challenge mode state machine", () => {
   it("starts in the gated start state", () => {
     expect(createInitialChallengeMachineState()).toMatchObject({
-      selectedIndex: 0,
       hasStarted: false,
       phase: "start",
       attemptIndex: 0,
@@ -20,11 +19,14 @@ describe("challenge mode state machine", () => {
   it("ignores stale calculator input when a challenge starts", () => {
     const started = challengeModeReducer(createInitialChallengeMachineState(), {
       type: "start",
+      challengeId: challengeDeck[0].id,
       currentInputNonce: 8,
     })
 
     const unchanged = challengeModeReducer(started, {
       type: "input",
+      challengeId: challengeDeck[0].id,
+      steps: challengeDeck[0].steps,
       token: "0",
       nonce: 8,
     })
@@ -35,11 +37,14 @@ describe("challenge mode state machine", () => {
   it("fails on a wrong key and resets cleanly on repeat", () => {
     const started = challengeModeReducer(createInitialChallengeMachineState(), {
       type: "start",
+      challengeId: challengeDeck[0].id,
       currentInputNonce: 0,
     })
 
     const failed = challengeModeReducer(started, {
       type: "input",
+      challengeId: challengeDeck[0].id,
+      steps: challengeDeck[0].steps,
       token: "0",
       nonce: 1,
     })
@@ -49,6 +54,7 @@ describe("challenge mode state machine", () => {
 
     const repeated = challengeModeReducer(failed, {
       type: "repeat",
+      challengeId: challengeDeck[0].id,
       currentInputNonce: 1,
     })
 
@@ -61,12 +67,15 @@ describe("challenge mode state machine", () => {
   it("marks a solved card as complete and advances the loop without showing start again", () => {
     let state = challengeModeReducer(createInitialChallengeMachineState(), {
       type: "start",
+      challengeId: challengeDeck[0].id,
       currentInputNonce: 0,
     })
 
     for (const [index, token] of challengeDeck[0].steps.entries()) {
       state = challengeModeReducer(state, {
         type: "input",
+        challengeId: challengeDeck[0].id,
+        steps: challengeDeck[0].steps,
         token,
         nonce: index + 1,
       })
@@ -77,11 +86,10 @@ describe("challenge mode state machine", () => {
     expect(state.flash).toBe("success")
 
     const next = challengeModeReducer(state, {
-      type: "scroll_to",
-      index: 1,
+      type: "select",
+      challengeId: challengeDeck[1].id,
     })
 
-    expect(next.selectedIndex).toBe(1)
     expect(next.phase).toBe("active")
     expect(next.attemptIndex).toBe(0)
   })
@@ -89,20 +97,23 @@ describe("challenge mode state machine", () => {
   it("returns to the global start gate on end", () => {
     let active = challengeModeReducer(createInitialChallengeMachineState(), {
       type: "start",
+      challengeId: challengeDeck[0].id,
       currentInputNonce: 4,
     })
 
     for (const [index, token] of challengeDeck[0].steps.entries()) {
       active = challengeModeReducer(active, {
         type: "input",
+        challengeId: challengeDeck[0].id,
+        steps: challengeDeck[0].steps,
         token,
         nonce: index + 5,
       })
     }
 
     active = challengeModeReducer(active, {
-      type: "scroll_to",
-      index: 2,
+      type: "select",
+      challengeId: challengeDeck[2].id,
     })
 
     const ended = challengeModeReducer(active, {
@@ -110,7 +121,6 @@ describe("challenge mode state machine", () => {
       currentInputNonce: 99,
     })
 
-    expect(ended.selectedIndex).toBe(0)
     expect(ended.hasStarted).toBe(false)
     expect(ended.phase).toBe("start")
     expect(ended.attemptIndex).toBe(0)
