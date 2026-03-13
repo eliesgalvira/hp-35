@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@creativoma/liquid-glass':
-        specifier: ^1.2.0
-        version: 1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@fontsource/noto-sans-symbols':
         specifier: ^5.2.11
         version: 5.2.11
@@ -138,12 +135,6 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
-
-  '@creativoma/liquid-glass@1.2.0':
-    resolution: {integrity: sha512-2nLZcDXWJkI57gcOJF2AVs76NuiSTw4Dlzimpky2aPjYvvA1lN5pYmyy1Gp9DOCL4Vt5nTeGhXKn/3J4d0H1uw==}
-    peerDependencies:
-      react: '>=18.0.0'
-      react-dom: '>=18.0.0'
 
   '@csstools/color-helpers@6.0.1':
     resolution: {integrity: sha512-NmXRccUJMk2AWA5A7e5a//3bCIMyOu2hAtdRYrhPPHjDxINuCwX1w6rnIZ4xjLcp0ayv6h8Pc3X0eJUGiAAXHQ==}
@@ -1579,11 +1570,6 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
-
-  '@creativoma/liquid-glass@1.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    dependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
 
   '@csstools/color-helpers@6.0.1': {}
 

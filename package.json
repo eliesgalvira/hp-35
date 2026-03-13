@@ -10,7 +10,6 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@creativoma/liquid-glass": "^1.2.0",
     "@fontsource/noto-sans-symbols": "^5.2.11",
     "@fontsource/noto-sans-symbols-2": "^5.2.8",
     "@radix-ui/react-slot": "1.2.4",

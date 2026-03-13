@@ -122,6 +122,24 @@ describe("Challenge mode", () => {
     expect(screen.getByTestId("challenge-failure-actions")).toBeInTheDocument()
     expect(screen.getByTestId("challenge-failure-pressed")).toHaveTextContent("0")
     expect(screen.getByTestId("challenge-failure-expected")).toHaveTextContent("3")
+    const failureGlass = screen.getByTestId("challenge-failure-glass")
+    const failureGlassContent = screen.getByTestId("challenge-failure-glass-content")
+    expect(failureGlassContent).toContainElement(screen.getByTestId("challenge-failure-feedback"))
+    expect(failureGlassContent).toContainElement(screen.getByTestId("challenge-failure-actions"))
+    expect(failureGlassContent.className).toContain("pointer-events-auto")
+    expect(failureGlass).toHaveAttribute(
+      "data-tint-color",
+      "rgba(160, 47, 35, 0.18)"
+    )
+    expect(failureGlass).toHaveAttribute(
+      "data-background",
+      "linear-gradient(180deg, rgba(255,241,237,0.52) 0%, rgba(232,188,178,0.34) 100%),repeating-linear-gradient(135deg, rgba(145,45,35,0.10) 0px, rgba(145,45,35,0.10) 1px, rgba(255,255,255,0) 1px, rgba(255,255,255,0) 15px),repeating-linear-gradient(45deg, rgba(255,248,244,0.06) 0px, rgba(255,248,244,0.06) 1px, rgba(255,255,255,0) 1px, rgba(255,255,255,0) 19px),radial-gradient(circle at 18% 22%, rgba(118,34,26,0.12), rgba(118,34,26,0) 24%),radial-gradient(circle at 82% 78%, rgba(118,34,26,0.08), rgba(118,34,26,0) 28%)"
+    )
+    expect(failureGlass.className).toContain("border-[rgba(184,82,82,0.28)]")
+    expect(failureGlass.className).toContain("absolute")
+    expect(failureGlass.className).toContain("inset-0")
+    expect(failureGlass.getAttribute("style")).toContain("z-index: 0")
+    expect(failureGlass).toHaveAttribute("data-blur-px", "6")
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
   })
 
