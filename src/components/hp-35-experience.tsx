@@ -1,6 +1,6 @@
 "use client"
 
-import { AnimatePresence, motion } from "framer-motion"
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { Telescope } from "lucide-react"
 import { challengeDeck } from "@/components/challenge-data"
@@ -118,22 +118,45 @@ export function HP35Experience() {
   }
 
   const challengeShellTransition = {
-    duration: 0.48,
+    duration: 0.58,
+    ease: [0.22, 1, 0.36, 1] as const,
+  }
+
+  const challengeShellEnterTransition = {
+    duration: 0.45,
+    ease: [0.22, 1, 0.36, 1] as const,
+  }
+
+  const mobileReflowTransition = {
+    duration: 0.58,
     ease: [0.22, 1, 0.36, 1] as const,
   }
 
   return (
-    <div className="grid w-full max-w-[1320px] grid-cols-1 justify-items-center gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_320px_minmax(0,1fr)] lg:items-start">
-      <div className="w-full max-w-[360px] shrink-0 lg:justify-self-end">
-        <motion.div layout transition={challengeShellTransition} className="w-full">
-          <AnimatePresence initial={false} mode="wait">
+    <LayoutGroup>
+      <motion.div
+        layout
+        transition={mobileReflowTransition}
+        className="grid w-full max-w-[1320px] grid-cols-1 justify-items-center gap-6 md:gap-8 lg:grid-cols-[minmax(0,1fr)_320px_minmax(0,1fr)] lg:items-start"
+      >
+        <motion.div layout transition={mobileReflowTransition} className="w-full max-w-[360px] shrink-0 lg:justify-self-end">
+          <motion.div layout transition={challengeShellTransition} className="relative w-full">
+            <AnimatePresence initial={false} mode="wait">
             {challengeModeEnabled ? (
               <motion.div
                 key="challenge-mode-expanded"
+                layout
                 initial={{ opacity: 0, y: -18, scale: 0.98, filter: "blur(12px)" }}
                 animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -18, scale: 0.98, filter: "blur(12px)" }}
-                transition={challengeShellTransition}
+                transition={{
+                  layout: challengeShellTransition,
+                  opacity: challengeShellEnterTransition,
+                  y: challengeShellEnterTransition,
+                  scale: challengeShellEnterTransition,
+                  filter: challengeShellEnterTransition,
+                }}
+                className="w-full"
               >
                 <ChallengeMode
                   className="w-full"
@@ -150,12 +173,19 @@ export function HP35Experience() {
             ) : (
               <motion.button
                 key="challenge-mode-collapsed"
+                layout
                 type="button"
                 data-testid="challenge-enable"
                 initial={{ opacity: 0, y: -10, scale: 0.96, filter: "blur(10px)" }}
                 animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
                 exit={{ opacity: 0, y: -10, scale: 0.96, filter: "blur(10px)" }}
-                transition={challengeShellTransition}
+                transition={{
+                  layout: challengeShellTransition,
+                  opacity: challengeShellEnterTransition,
+                  y: challengeShellEnterTransition,
+                  scale: challengeShellEnterTransition,
+                  filter: challengeShellEnterTransition,
+                }}
                 whileTap={{ scale: 0.985 }}
                 onClick={() => setChallengeModeEnabled(true)}
                 className="group relative flex w-full items-center justify-between gap-4 overflow-hidden rounded-[18px] border border-[#5b2617] bg-[#140807] px-5 py-4 text-left shadow-[0_0_20px_rgba(255,80,30,0.08),inset_0_1px_0_rgba(255,212,160,0.08),inset_0_-12px_20px_rgba(0,0,0,0.45)] transition-colors duration-200 hover:border-[#7a3926] hover:bg-[#190908]"
@@ -196,31 +226,32 @@ export function HP35Experience() {
                 </motion.span>
               </motion.button>
             )}
-          </AnimatePresence>
+            </AnimatePresence>
+          </motion.div>
         </motion.div>
-      </div>
 
-      <div className="relative lg:justify-self-center">
-        <div
-          className="absolute left-[8%] right-[8%] h-6"
-          style={{
-            bottom: "-14px",
-            background: "radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, transparent 70%)",
-            filter: "blur(10px)",
-            zIndex: 0,
-          }}
-        />
-        <HP35
-          resetNonce={calculatorResetNonce}
-          clearXNonce={clearXNonce}
-          onStackChange={setRows}
-          onButtonPress={handleButtonPress}
-        />
-      </div>
+        <motion.div layout="position" transition={mobileReflowTransition} className="relative lg:justify-self-center">
+          <div
+            className="absolute left-[8%] right-[8%] h-6"
+            style={{
+              bottom: "-14px",
+              background: "radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, transparent 70%)",
+              filter: "blur(10px)",
+              zIndex: 0,
+            }}
+          />
+          <HP35
+            resetNonce={calculatorResetNonce}
+            clearXNonce={clearXNonce}
+            onStackChange={setRows}
+            onButtonPress={handleButtonPress}
+          />
+        </motion.div>
 
-      <div className="w-full lg:w-[380px] lg:justify-self-start">
-        <RetroCommandStack rows={rows} />
-      </div>
-    </div>
+        <motion.div layout="position" transition={mobileReflowTransition} className="w-full lg:w-[380px] lg:justify-self-start">
+          <RetroCommandStack rows={rows} />
+        </motion.div>
+      </motion.div>
+    </LayoutGroup>
   )
 }
