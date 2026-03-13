@@ -1,6 +1,5 @@
 "use client"
 
-import { LiquidGlass } from "@creativoma/liquid-glass"
 import { motion } from "framer-motion"
 import { useEffect, useState } from "react"
 import { Check, Telescope, X } from "lucide-react"
@@ -48,42 +47,66 @@ const feedbackPillClass =
 
 const lockedCarouselOptions = { align: "start" as const, loop: false, watchDrag: false }
 const unlockedCarouselOptions = { align: "start" as const, loop: false, watchDrag: true }
+const defaultChallengeGlassBackground =
+  "linear-gradient(180deg, rgba(255,250,244,0.06) 0%, rgba(255,250,244,0.10) 100%)"
+const failureChallengeGlassTint = "rgba(255, 154, 154, 0.28)"
+const failureChallengeGlassBackground =
+  "linear-gradient(180deg, rgba(255,242,242,0.30) 0%, rgba(255,219,219,0.20) 100%)"
+const failureChallengeGlassClassName = "border-[rgba(184,82,82,0.28)]"
+const failureChallengeVeilClassName =
+  "bg-[linear-gradient(180deg,rgba(176,62,62,0.10),rgba(97,30,30,0.18))]"
 
 function ChallengeGlassOverlay({
   children,
   className,
   contentClassName,
+  contentTestId,
+  glassClassName,
+  glassStyle,
+  glassTestId,
   tintColor = "rgba(244, 235, 220, 0.12)",
   veilClassName,
 }: {
   children: React.ReactNode
   className?: string
   contentClassName?: string
+  contentTestId?: string
+  glassClassName?: string
+  glassStyle?: React.CSSProperties
+  glassTestId?: string
   tintColor?: string
   veilClassName?: string
 }) {
+  const resolvedBackground = glassStyle?.background ?? defaultChallengeGlassBackground
+
   return (
-    <div className={cn("absolute inset-0 z-20 overflow-hidden rounded-[18px] backdrop-blur-[8px]", className)}>
-      <LiquidGlass
-        backdropBlur={16}
-        tintColor={tintColor}
-        displacementScale={110}
-        turbulenceBaseFrequency="0.008 0.012"
-        turbulenceSeed={4}
-        className="pointer-events-none absolute inset-0 rounded-[18px] border border-[rgba(255,233,205,0.18)]"
+    <div className={cn("absolute inset-0 z-20 isolate overflow-hidden rounded-[18px]", className)}>
+      <div
+        data-testid={glassTestId}
+        data-background={typeof resolvedBackground === "string" ? resolvedBackground : ""}
+        data-tint-color={tintColor}
+        className={cn(
+          "pointer-events-none absolute inset-0 rounded-[18px] border border-[rgba(255,233,205,0.18)]",
+          glassClassName
+        )}
         style={{
-          background:
-            "linear-gradient(180deg, rgba(255,250,244,0.06) 0%, rgba(255,250,244,0.1) 100%)",
+          zIndex: 0,
+          background: defaultChallengeGlassBackground,
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          ...glassStyle,
         }}
       />
+      <div className="pointer-events-none absolute inset-0 z-[1] rounded-[18px]" style={{ background: tintColor }} />
       <div
         className={cn(
-          "pointer-events-none absolute inset-0 rounded-[18px] bg-[linear-gradient(180deg,rgba(255,248,236,0.08),rgba(32,10,7,0.16))]",
+          "pointer-events-none absolute inset-0 z-[2] rounded-[18px] bg-[linear-gradient(180deg,rgba(255,248,236,0.08),rgba(32,10,7,0.16))]",
           veilClassName
         )}
       />
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center">
         <div
+          data-testid={contentTestId}
           className={cn(
             "pointer-events-auto mx-5 flex w-[calc(100%-2.5rem)] max-w-[280px] flex-col gap-3",
             contentClassName
@@ -232,10 +255,11 @@ export function ChallengeMode({
                           className="hp-flashcard-scene relative aspect-[4/4.35] w-full"
                           data-flipped={isFlipped ? "true" : "false"}
                         >
-                          <div className="hp-flashcard-inner relative h-full w-full">
+                          <div className="relative h-full w-full overflow-hidden rounded-[18px]">
+                            <div className="hp-flashcard-inner relative h-full w-full">
                             <div
                               className={cn(
-                                "hp-flashcard-face absolute inset-0 rounded-[18px] border border-[#d6c39d] p-4 text-[#3b2a1d] shadow-[0_24px_36px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.45)] transition-[filter,opacity]",
+                                "hp-flashcard-face absolute inset-0 overflow-hidden rounded-[18px] border border-[#d6c39d] p-4 text-[#3b2a1d] shadow-[0_24px_36px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.45)] transition-[filter,opacity]",
                                 showSuccessFlash && "hp-challenge-flash-success",
                                 showErrorFlash && "hp-challenge-flash-error"
                               )}
@@ -326,86 +350,93 @@ export function ChallengeMode({
                                 </div>
                               </div>
                             </div>
-                          </div>
 
-                          {showFailureOverlay ? (
-                            <ChallengeGlassOverlay
-                              tintColor="rgba(134, 24, 19, 0.22)"
-                              veilClassName="bg-[linear-gradient(180deg,rgba(103,23,19,0.18),rgba(42,10,8,0.34))]"
-                              contentClassName="items-center"
-                            >
-                              <div data-testid="challenge-failure-feedback" className="flex w-full flex-col items-center gap-3">
-                                {selectedFailureFeedback ? (
-                                  <div className="flex w-full items-stretch gap-2">
-                                    <div className={cn(feedbackPillClass, "flex-1 border-[#b46a61] bg-[#f0d8d4] text-[#5c1814]")}>
-                                      <X className="size-4 shrink-0" />
-                                      <span
-                                        data-testid="challenge-failure-pressed"
-                                        className="truncate text-[13px] font-semibold tracking-[0.03em]"
-                                      >
-                                        {formatChallengeKeyLabel(selectedFailureFeedback.pressed)}
-                                      </span>
-                                    </div>
+                            </div>
 
-                                    <div className={cn(feedbackPillClass, "flex-1 border-[#7e9a73] bg-[#dce6d8] text-[#2f5234]")}>
-                                      <Check className="size-4 shrink-0" />
-                                      <span
-                                        data-testid="challenge-failure-expected"
-                                        className="truncate text-[13px] font-semibold tracking-[0.03em]"
-                                      >
-                                        {formatChallengeKeyLabel(selectedFailureFeedback.expected)}
-                                      </span>
+                            {showFailureOverlay ? (
+                              <ChallengeGlassOverlay
+                                contentTestId="challenge-failure-glass-content"
+                                glassTestId="challenge-failure-glass"
+                                tintColor={failureChallengeGlassTint}
+                                glassClassName={failureChallengeGlassClassName}
+                                glassStyle={{ background: failureChallengeGlassBackground }}
+                                veilClassName={failureChallengeVeilClassName}
+                                contentClassName="items-center"
+                              >
+                                <div data-testid="challenge-failure-feedback" className="flex w-full flex-col items-center gap-3">
+                                  {selectedFailureFeedback ? (
+                                    <div className="flex w-full items-stretch gap-2">
+                                      <div className={cn(feedbackPillClass, "flex-1 border-[#b46a61] bg-[#f0d8d4] text-[#5c1814]")}>
+                                        <X className="size-4 shrink-0" />
+                                        <span
+                                          data-testid="challenge-failure-pressed"
+                                          className="truncate text-[13px] font-semibold tracking-[0.03em]"
+                                        >
+                                          {formatChallengeKeyLabel(selectedFailureFeedback.pressed)}
+                                        </span>
+                                      </div>
+
+                                      <div className={cn(feedbackPillClass, "flex-1 border-[#7e9a73] bg-[#dce6d8] text-[#2f5234]")}>
+                                        <Check className="size-4 shrink-0" />
+                                        <span
+                                          data-testid="challenge-failure-expected"
+                                          className="truncate text-[13px] font-semibold tracking-[0.03em]"
+                                        >
+                                          {formatChallengeKeyLabel(selectedFailureFeedback.expected)}
+                                        </span>
+                                      </div>
                                     </div>
+                                  ) : null}
+
+                                  <div data-testid="challenge-failure-actions" className="flex flex-col items-center gap-3">
+                                    <button
+                                      type="button"
+                                      data-testid="challenge-repeat"
+                                      className={panelButtonClass}
+                                      onClick={onRepeat}
+                                    >
+                                      Repeat
+                                    </button>
+                                    <button
+                                      type="button"
+                                      data-testid="challenge-end"
+                                      className={panelButtonClass}
+                                      onClick={onEnd}
+                                    >
+                                      End
+                                    </button>
+                                    <button
+                                      type="button"
+                                      data-testid="challenge-disable"
+                                      className={cn(
+                                        panelButtonClass,
+                                        "border-[#6b473a] bg-[rgba(34,14,11,0.82)] text-[#e8c8b4] hover:bg-[rgba(49,20,16,0.9)]"
+                                      )}
+                                      onClick={onDisable}
+                                    >
+                                      Disable challenge mode
+                                    </button>
                                   </div>
-                                ) : null}
+                                </div>
+                              </ChallengeGlassOverlay>
+                            ) : null}
 
-                                <div data-testid="challenge-failure-actions" className="flex flex-col items-center gap-3">
+                            {showStartOverlay ? (
+                              <ChallengeGlassOverlay contentClassName="items-center">
+                                <div className="flex flex-col items-center gap-3 text-center">
                                   <button
                                     type="button"
-                                    data-testid="challenge-repeat"
+                                    data-testid="challenge-start"
                                     className={panelButtonClass}
-                                    onClick={onRepeat}
+                                    onClick={onStart}
                                   >
-                                    Repeat
-                                  </button>
-                                  <button
-                                    type="button"
-                                    data-testid="challenge-end"
-                                    className={panelButtonClass}
-                                    onClick={onEnd}
-                                  >
-                                    End
-                                  </button>
-                                  <button
-                                    type="button"
-                                    data-testid="challenge-disable"
-                                    className={cn(
-                                      panelButtonClass,
-                                      "border-[#6b473a] bg-[rgba(34,14,11,0.82)] text-[#e8c8b4] hover:bg-[rgba(49,20,16,0.9)]"
-                                    )}
-                                    onClick={onDisable}
-                                  >
-                                    Disable challenge mode
+                                    Start
                                   </button>
                                 </div>
-                              </div>
-                            </ChallengeGlassOverlay>
-                          ) : null}
+                              </ChallengeGlassOverlay>
+                            ) : null}
+                          </div>
 
-                          {showStartOverlay ? (
-                            <ChallengeGlassOverlay contentClassName="items-center">
-                              <div className="flex flex-col items-center gap-3 text-center">
-                                <button
-                                  type="button"
-                                  data-testid="challenge-start"
-                                  className={panelButtonClass}
-                                  onClick={onStart}
-                                >
-                                  Start
-                                </button>
-                              </div>
-                            </ChallengeGlassOverlay>
-                          ) : null}
                         </div>
                       </div>
                     </CarouselItem>

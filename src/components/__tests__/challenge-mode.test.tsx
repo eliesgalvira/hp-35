@@ -122,6 +122,23 @@ describe("Challenge mode", () => {
     expect(screen.getByTestId("challenge-failure-actions")).toBeInTheDocument()
     expect(screen.getByTestId("challenge-failure-pressed")).toHaveTextContent("0")
     expect(screen.getByTestId("challenge-failure-expected")).toHaveTextContent("3")
+    const failureGlass = screen.getByTestId("challenge-failure-glass")
+    const failureGlassContent = screen.getByTestId("challenge-failure-glass-content")
+    expect(failureGlassContent).toContainElement(screen.getByTestId("challenge-failure-feedback"))
+    expect(failureGlassContent).toContainElement(screen.getByTestId("challenge-failure-actions"))
+    expect(failureGlassContent.className).toContain("pointer-events-auto")
+    expect(failureGlass).toHaveAttribute(
+      "data-tint-color",
+      "rgba(255, 154, 154, 0.28)"
+    )
+    expect(failureGlass).toHaveAttribute(
+      "data-background",
+      "linear-gradient(180deg, rgba(255,242,242,0.30) 0%, rgba(255,219,219,0.20) 100%)"
+    )
+    expect(failureGlass.className).toContain("border-[rgba(184,82,82,0.28)]")
+    expect(failureGlass.className).toContain("absolute")
+    expect(failureGlass.className).toContain("inset-0")
+    expect(failureGlass).toHaveStyle({ zIndex: "0" })
     expect(screen.getByRole("button", { name: "Next slide" })).toBeDisabled()
   })
 
