@@ -49,12 +49,18 @@ const lockedCarouselOptions = { align: "start" as const, loop: false, watchDrag:
 const unlockedCarouselOptions = { align: "start" as const, loop: false, watchDrag: true }
 const defaultChallengeGlassBackground =
   "linear-gradient(180deg, rgba(255,250,244,0.06) 0%, rgba(255,250,244,0.10) 100%)"
-const failureChallengeGlassTint = "rgba(255, 154, 154, 0.28)"
+const failureChallengeGlassTint = "rgba(160, 47, 35, 0.18)"
 const failureChallengeGlassBackground =
-  "linear-gradient(180deg, rgba(255,242,242,0.30) 0%, rgba(255,219,219,0.20) 100%)"
+  [
+    "linear-gradient(180deg, rgba(255,241,237,0.52) 0%, rgba(232,188,178,0.34) 100%)",
+    "repeating-linear-gradient(135deg, rgba(145,45,35,0.10) 0px, rgba(145,45,35,0.10) 1px, rgba(255,255,255,0) 1px, rgba(255,255,255,0) 15px)",
+    "repeating-linear-gradient(45deg, rgba(255,248,244,0.06) 0px, rgba(255,248,244,0.06) 1px, rgba(255,255,255,0) 1px, rgba(255,255,255,0) 19px)",
+    "radial-gradient(circle at 18% 22%, rgba(118,34,26,0.12), rgba(118,34,26,0) 24%)",
+    "radial-gradient(circle at 82% 78%, rgba(118,34,26,0.08), rgba(118,34,26,0) 28%)",
+  ].join(",")
 const failureChallengeGlassClassName = "border-[rgba(184,82,82,0.28)]"
 const failureChallengeVeilClassName =
-  "bg-[linear-gradient(180deg,rgba(176,62,62,0.10),rgba(97,30,30,0.18))]"
+  "bg-[linear-gradient(180deg,rgba(164,52,40,0.10),rgba(70,20,16,0.22))]"
 
 function ChallengeGlassOverlay({
   children,
@@ -62,6 +68,7 @@ function ChallengeGlassOverlay({
   contentClassName,
   contentTestId,
   glassClassName,
+  glassBlurPx = 8,
   glassStyle,
   glassTestId,
   tintColor = "rgba(244, 235, 220, 0.12)",
@@ -72,6 +79,7 @@ function ChallengeGlassOverlay({
   contentClassName?: string
   contentTestId?: string
   glassClassName?: string
+  glassBlurPx?: number
   glassStyle?: React.CSSProperties
   glassTestId?: string
   tintColor?: string
@@ -84,6 +92,7 @@ function ChallengeGlassOverlay({
       <div
         data-testid={glassTestId}
         data-background={typeof resolvedBackground === "string" ? resolvedBackground : ""}
+        data-blur-px={String(glassBlurPx)}
         data-tint-color={tintColor}
         className={cn(
           "pointer-events-none absolute inset-0 rounded-[18px] border border-[rgba(255,233,205,0.18)]",
@@ -92,8 +101,8 @@ function ChallengeGlassOverlay({
         style={{
           zIndex: 0,
           background: defaultChallengeGlassBackground,
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
+          backdropFilter: `blur(${glassBlurPx}px)`,
+          WebkitBackdropFilter: `blur(${glassBlurPx}px)`,
           ...glassStyle,
         }}
       />
@@ -357,6 +366,7 @@ export function ChallengeMode({
                               <ChallengeGlassOverlay
                                 contentTestId="challenge-failure-glass-content"
                                 glassTestId="challenge-failure-glass"
+                                glassBlurPx={6}
                                 tintColor={failureChallengeGlassTint}
                                 glassClassName={failureChallengeGlassClassName}
                                 glassStyle={{ background: failureChallengeGlassBackground }}
