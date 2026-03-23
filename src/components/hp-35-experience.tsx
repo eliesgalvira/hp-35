@@ -248,7 +248,11 @@ export function HP35Experience() {
           />
         </motion.div>
 
-        <motion.div layout="position" transition={mobileReflowTransition} className="w-full lg:w-[380px] lg:justify-self-start">
+        <motion.div
+          layout="position"
+          transition={mobileReflowTransition}
+          className="w-full max-w-[380px] justify-self-center lg:w-[380px] lg:max-w-none lg:justify-self-start"
+        >
           <RetroCommandStack rows={rows} />
         </motion.div>
       </motion.div>

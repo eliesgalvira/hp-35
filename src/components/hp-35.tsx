@@ -1,16 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
+import type { CSSProperties } from "react"
 import type { StackRegisterRow } from "./retro-command-stack"
 import { SevenSegmentDisplay } from "./seven-segment-display"
-import { formatNumberToLedDisplay, type LedDisplayParts } from "../lib/hp-led-display"
-
-interface StackState {
-  x: number
-  y: number
-  z: number
-  t: number
-}
+import { useCalculatorModel, type CalculatorToken } from "@/features/calculator"
 
 interface HP35Props {
   resetNonce?: number
@@ -20,555 +13,39 @@ interface HP35Props {
 }
 
 function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }: HP35Props = {}) {
-  const [stack, setStack] = useState<StackState>({ x: 0, y: 0, z: 0, t: 0 })
-  const [stackDepth, setStackDepth] = useState(0)
-  const [improperOperation, setImproperOperation] = useState(false)
-  const [improperOperationVisible, setImproperOperationVisible] = useState(true)
-  const [entering, setEntering] = useState(false)
-  const [entryBuffer, setEntryBuffer] = useState("")
-  const [entryDecimalExplicit, setEntryDecimalExplicit] = useState(false)
-  const [entrySign, setEntrySign] = useState<1 | -1>(1)
-  const [pendingSign, setPendingSign] = useState<1 | -1 | null>(null)
-  const [memory, setMemory] = useState(0)
-  const [eexActive, setEexActive] = useState(false)
-  const [eexMantissa, setEexMantissa] = useState(0)
-  const [eexMantissaText, setEexMantissaText] = useState("")
-  const [eexMantissaSign, setEexMantissaSign] = useState<1 | -1>(1)
-  const [eexExponentDigits, setEexExponentDigits] = useState("")
-  const [eexSign, setEexSign] = useState<1 | -1>(1)
-  const [arcActive, setArcActive] = useState(false)
-  const [stackLift, setStackLift] = useState(false)
-  const lastResetNonceRef = useRef(resetNonce)
-  const lastClearXNonceRef = useRef(clearXNonce)
-
-  /* --- display formatting (HP-35 style: sign + mantissa + exponent) --- */
-
-  const MAX_MANTISSA_DIGITS = 10
-  const MIN_MAGNITUDE = 1e-99
-  const MAX_MAGNITUDE = 1e100
-  const MAX_DISPLAY_VALUE = 9.999999999e99
-
-  const countDigits = (value: string) => value.replace(".", "").length
-
-  const buildDisplay = () => {
-    if (improperOperation) {
-      return { sign: "", mantissa: "0.", showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    if (eexActive) {
-      const mantissa =
-        eexMantissaText !== "" ? eexMantissaText : formatNumberToLedDisplay(eexMantissaSign * eexMantissa).mantissa
-      const exponent = (eexExponentDigits || "0").padStart(2, "0")
-      return {
-        sign: eexMantissaSign < 0 ? "-" : "",
-        mantissa,
-        showExponent: true,
-        exponentSign: eexSign < 0 ? "-" : " ",
-        exponent,
-      }
-    }
-    if (entering) {
-      const mantissa = entryBuffer === "" ? "0." : entryBuffer
-      return { sign: entrySign < 0 ? "-" : "", mantissa, showExponent: false, exponentSign: " ", exponent: "" }
-    }
-    return formatNumberToLedDisplay(stack.x)
-  }
-
-  const pushStack = (newX: number) => {
-    setStack((prev) => ({ t: prev.z, z: prev.y, y: prev.x, x: newX }))
-  }
-
-  useEffect(() => {
-    if (!improperOperation) {
-      setImproperOperationVisible(true)
-      return
-    }
-
-    setImproperOperationVisible(true)
-    const interval = window.setInterval(() => {
-      setImproperOperationVisible((visible) => !visible)
-    }, 500)
-
-    return () => window.clearInterval(interval)
-  }, [improperOperation])
-
-  useEffect(() => {
-    if (!onStackChange) return
-    const registerValues = [stack.x, stack.y, stack.z, stack.t]
-    const labels: StackRegisterRow["label"][] = ["X", "Y", "Z", "T"]
-    onStackChange(
-      labels.map((label, index) => ({
-        label,
-        display: index < stackDepth ? formatNumberToLedDisplay(registerValues[index]) : formatNumberToLedDisplay(0),
-        empty: index >= stackDepth,
-      })),
-    )
-  }, [onStackChange, stack, stackDepth])
-  const resetEntryModes = () => {
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setEntrySign(1)
-    setPendingSign(null)
-    setStackLift(false)
-    setEexActive(false)
-    setEexExponentDigits("")
-    setEexMantissaText("")
-    setArcActive(false)
-  }
-
-  const showImproperOperation = () => {
-    setImproperOperation(true)
-    resetEntryModes()
-  }
-
-  const finishOperation = () => {
-    resetEntryModes()
-    setStackLift(true)
-  }
-
-  const normalizeResult = (value: number) => {
-    if (Number.isNaN(value)) return { kind: "improper" as const }
-    if (!Number.isFinite(value) || Math.abs(value) >= MAX_MAGNITUDE) {
-      return { kind: "value" as const, value: value < 0 ? -MAX_DISPLAY_VALUE : MAX_DISPLAY_VALUE }
-    }
-    if (value !== 0 && Math.abs(value) < MIN_MAGNITUDE) {
-      return { kind: "value" as const, value: 0 }
-    }
-    return { kind: "value" as const, value }
-  }
-
-  const inputDigit = (digit: string) => {
-    if (improperOperation) return
-    if (!entering && stackLift) {
-      pushStack(stack.x)
-      setStackLift(false)
-      setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
-    }
-    if (digit === "\u03C0") {
-      setStack((prev) => ({ ...prev, x: Math.PI }))
-      setStackDepth((prev) => Math.max(prev, 1))
-      setEntering(false)
-      setEntryBuffer("")
-      setEntryDecimalExplicit(false)
-      setEntrySign(1)
-      setPendingSign(null)
-      setStackLift(false)
-      setEexActive(false)
-      setEexExponentDigits("")
-      setEexMantissaText("")
-      return
-    }
-    if (eexActive) {
-      if (eexExponentDigits.length >= 2) return
-      const nextDigits = `${eexExponentDigits}${digit}`
-      setEexExponentDigits(nextDigits)
-      const exp = Number(nextDigits) * eexSign
-      const newValue = eexMantissaSign * eexMantissa * Math.pow(10, exp)
-      setStack((prev) => ({ ...prev, x: newValue }))
-      return
-    }
-    if (!entering) {
-      const nextSign = pendingSign ?? 1
-      setEntrySign(nextSign)
-      setPendingSign(null)
-      setEntryDecimalExplicit(false)
-      const newBuffer = `${digit}.`
-      setEntryBuffer(newBuffer)
-      setStack((prev) => ({ ...prev, x: nextSign * Number.parseFloat(newBuffer) }))
-      setEntering(true)
-      setStackLift(false)
-      setStackDepth((prev) => Math.max(prev, 1))
-      return
-    }
-    const digitsCount = countDigits(entryBuffer)
-    if (digitsCount >= MAX_MANTISSA_DIGITS) return
-    if (!entryDecimalExplicit && entryBuffer.endsWith(".")) {
-      const base = entryBuffer.slice(0, -1)
-      const newBuffer = `${base}${digit}.`
-      setEntryBuffer(newBuffer)
-      setStack((prev) => ({ ...prev, x: entrySign * Number.parseFloat(newBuffer) }))
-      return
-    }
-    const newBuffer = `${entryBuffer}${digit}`
-    setEntryBuffer(newBuffer)
-    setStack((prev) => ({ ...prev, x: entrySign * Number.parseFloat(newBuffer) }))
-  }
-
-  const inputDecimal = () => {
-    if (improperOperation) return
-    if (eexActive) return
-    if (!entering) {
-      if (stackLift) {
-        pushStack(stack.x)
-        setStackLift(false)
-        setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
-      }
-      const nextSign = pendingSign ?? 1
-      setEntrySign(nextSign)
-      setPendingSign(null)
-      setEntryBuffer(".")
-      setEntryDecimalExplicit(true)
-      setEntering(true)
-      setStack((prev) => ({ ...prev, x: nextSign * 0 }))
-      setStackDepth((prev) => Math.max(prev, 1))
-      return
-    }
-    if (!entryDecimalExplicit) {
-      setEntryDecimalExplicit(true)
-    }
-  }
-
-  const enter = () => {
-    if (improperOperation) return
-    pushStack(stack.x)
-    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
-    resetEntryModes()
-  }
-
-  const operation = (op: string) => {
-    if (improperOperation) return
-    let result = stack.x
-    switch (op) {
-      case "+":
-        result = stack.y + stack.x
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
-          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
-        }
-        break
-      case "-":
-        result = stack.y - stack.x
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
-          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
-        }
-        break
-      case "\u00D7":
-        result = stack.y * stack.x
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
-          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
-        }
-        break
-      case "\u00F7":
-        if (stack.x === 0) {
-          showImproperOperation()
-          return
-        }
-        result = stack.y / stack.x
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
-          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
-        }
-        break
-      case "x^y":
-        if (stack.x <= 0) {
-          showImproperOperation()
-          return
-        }
-        result = Math.pow(stack.x, stack.y)
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value, y: prev.z, z: prev.t, t: 0 }))
-          setStackDepth((prev) => (prev === 0 ? 0 : Math.max(prev - 1, 1)))
-        }
-        break
-      case "\u221Ax":
-        if (stack.x < 0) {
-          showImproperOperation()
-          return
-        }
-        result = Math.sqrt(stack.x)
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "1/x":
-        if (stack.x === 0) {
-          showImproperOperation()
-          return
-        }
-        result = 1 / stack.x
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "sin":
-        if (arcActive) {
-          if (stack.x < -1 || stack.x > 1) {
-            showImproperOperation()
-            return
-          }
-          result = (Math.asin(stack.x) * 180) / Math.PI
-        } else {
-          result = Math.sin((stack.x * Math.PI) / 180)
-        }
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setArcActive(false)
-          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "cos":
-        if (arcActive) {
-          if (stack.x < -1 || stack.x > 1) {
-            showImproperOperation()
-            return
-          }
-          result = (Math.acos(stack.x) * 180) / Math.PI
-        } else {
-          result = Math.cos((stack.x * Math.PI) / 180)
-        }
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setArcActive(false)
-          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "tan":
-        if (arcActive) {
-          result = (Math.atan(stack.x) * 180) / Math.PI
-        } else {
-          result = Math.tan((stack.x * Math.PI) / 180)
-        }
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setArcActive(false)
-          setStack((prev) => ({ ...prev, x: normalized.value, t: prev.z }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "log":
-        if (stack.x <= 0) {
-          showImproperOperation()
-          return
-        }
-        result = Math.log10(stack.x)
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "ln":
-        if (stack.x <= 0) {
-          showImproperOperation()
-          return
-        }
-        result = Math.log(stack.x)
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "e^x":
-        result = Math.exp(stack.x)
-        {
-          const normalized = normalizeResult(result)
-          if (normalized.kind === "improper") {
-            showImproperOperation()
-            return
-          }
-          setStack((prev) => ({ ...prev, x: normalized.value }))
-          setStackDepth((prev) => Math.max(prev, 1))
-        }
-        break
-      case "EEX":
-        if (eexActive) return
-        if (entering && entryBuffer !== "") {
-          setEexMantissaSign(entrySign)
-          setEexMantissa(Number.parseFloat(entryBuffer))
-          setEexMantissaText(entryBuffer)
-        } else {
-          const baseValue = stack.x === 0 ? 1 : stack.x
-          setEexMantissaSign(baseValue < 0 ? -1 : 1)
-          setEexMantissa(Math.abs(baseValue))
-          setEexMantissaText(formatNumberToLedDisplay(baseValue).mantissa)
-        }
-        setEexActive(true)
-        setEexExponentDigits("")
-        setEexSign(1)
-        setEntering(false)
-        setEntryBuffer("")
-        setEntryDecimalExplicit(false)
-        return
-      case "CHS":
-        if (eexActive) {
-          if (eexExponentDigits !== "") return
-          setEexSign((prev) => (prev === 1 ? -1 : 1))
-          return
-        }
-        if (entering) {
-          const nextSign = entrySign === 1 ? -1 : 1
-          setEntrySign(nextSign)
-          setStack((prev) => ({ ...prev, x: -prev.x }))
-          setPendingSign(nextSign)
-          setEntering(false)
-          setEntryBuffer("")
-          setEntryDecimalExplicit(false)
-          setStackLift(false)
-          return
-        }
-        setStack((prev) => ({ ...prev, x: -prev.x }))
-        setPendingSign(stack.x < 0 ? 1 : -1)
-        setEntryBuffer("")
-        setEntryDecimalExplicit(false)
-        setEntrySign(1)
-        setStackLift(false)
-        return
-      case "x\u2B82y":
-        setStack((prev) => ({ ...prev, x: prev.y, y: prev.x }))
-        break
-      case "arc":
-        setArcActive(true)
-        setEntering(false)
-        setEntryBuffer("")
-        setEntryDecimalExplicit(false)
-        setPendingSign(null)
-        setStackLift(false)
-        setEexActive(false)
-        setEexExponentDigits("")
-        setEexMantissaText("")
-        return
-    }
-    finishOperation()
-  }
-
-  const clear = () => {
-    setImproperOperation(false)
-    setImproperOperationVisible(true)
-    setStack({ x: 0, y: 0, z: 0, t: 0 })
-    setStackDepth(0)
-    setMemory(0)
-    resetEntryModes()
-  }
-
-  const clearXRegister = () => {
-    setImproperOperation(false)
-    setImproperOperationVisible(true)
-    setStack((prev) => ({ ...prev, x: 0 }))
-    resetEntryModes()
-  }
-
-  useLayoutEffect(() => {
-    if (resetNonce === lastResetNonceRef.current) return
-    clear()
-    lastResetNonceRef.current = resetNonce
-  }, [resetNonce])
-
-  useLayoutEffect(() => {
-    if (clearXNonce === lastClearXNonceRef.current) return
-    clearXRegister()
-    lastClearXNonceRef.current = clearXNonce
-  }, [clearXNonce])
-
-  const store = () => {
-    if (improperOperation) return
-    setMemory(stack.x)
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setEntrySign(1)
-    setStackLift(false)
-  }
-  const recall = () => {
-    if (improperOperation) return
-    pushStack(memory)
-    setStackDepth((prev) => Math.min(Math.max(prev, 1) + 1, 4))
-    setEntering(false)
-    setEntryBuffer("")
-    setEntryDecimalExplicit(false)
-    setEntrySign(1)
-    setPendingSign(null)
-    setStackLift(false)
-  }
+  const { display, improperOperation, improperOperationVisible, pressToken } = useCalculatorModel({
+    resetNonce,
+    clearXNonce,
+    onStackChange,
+  })
 
   /* --- Button factories --- */
 
-  const runButtonAction = (token: string, action: () => void) => () => {
+  const runButtonAction = (token: CalculatorToken) => () => {
     onButtonPress?.(token)
-    action()
+    pressToken(token)
   }
 
-  const funcBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={runButtonAction(token, action)} className="hp-key-func flex items-center justify-center" aria-label={ariaLabel}>
+  const funcBtn = (label: string | React.ReactNode, token: CalculatorToken, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token)} className="hp-key-func flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const blueBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={runButtonAction(token, action)} className="hp-key-blue flex items-center justify-center" aria-label={ariaLabel}>
+  const blueBtn = (label: string | React.ReactNode, token: CalculatorToken, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token)} className="hp-key-blue flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const numBtn = (label: string | React.ReactNode, token: string, action: () => void, ariaLabel?: string) => (
-    <button onMouseDown={runButtonAction(token, action)} className="hp-key-num flex items-center justify-center" aria-label={ariaLabel}>
+  const numBtn = (label: string | React.ReactNode, token: CalculatorToken, ariaLabel?: string) => (
+    <button onMouseDown={runButtonAction(token)} className="hp-key-num flex items-center justify-center" aria-label={ariaLabel}>
       {label}
     </button>
   )
 
-  const opBtn = (label: string, token: string, action: () => void) => (
-    <button onMouseDown={runButtonAction(token, action)} className="hp-key-op flex items-center justify-center">
+  const opBtn = (label: string, token: CalculatorToken) => (
+    <button onMouseDown={runButtonAction(token)} className="hp-key-op flex items-center justify-center">
       {label}
     </button>
   )
@@ -629,7 +106,7 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
 
   /* --- Render --- */
 
-  const displayState: LedDisplayParts = buildDisplay()
+  const displayState = display
 
   return (
     <div
@@ -781,11 +258,11 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(xyLabel, "x^y", () => operation("x^y"), "x^y")}
-              {funcBtn(<span className={lc}>log</span>, "log", () => operation("log"), "log")}
-              {funcBtn(<span className={lc}>ln</span>, "ln", () => operation("ln"), "ln")}
-              {funcBtn(expLabel, "e^x", () => operation("e^x"), "e^x")}
-              {blueBtn("CLR", "CLR", clear)}
+              {funcBtn(xyLabel, "x^y", "x^y")}
+              {funcBtn(<span className={lc}>log</span>, "log", "log")}
+              {funcBtn(<span className={lc}>ln</span>, "ln", "ln")}
+              {funcBtn(expLabel, "e^x", "e^x")}
+              {blueBtn("CLR", "CLR")}
             </div>
 
             {/* --- Function Keys Row 2: sqrt(x)  arc  sin  cos  tan --- */}
@@ -797,11 +274,11 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(sqrtLabel, "√x", () => operation("\u221Ax"), "\u221Ax")}
-              {funcBtn(<span className={lc}>arc</span>, "arc", () => operation("arc"), "arc")}
-              {funcBtn(<span className={lc}>sin</span>, "sin", () => operation("sin"), "sin")}
-              {funcBtn(<span className={lc}>cos</span>, "cos", () => operation("cos"), "cos")}
-              {funcBtn(<span className={lc}>tan</span>, "tan", () => operation("tan"), "tan")}
+              {funcBtn(sqrtLabel, "√x", "\u221Ax")}
+              {funcBtn(<span className={lc}>arc</span>, "arc", "arc")}
+              {funcBtn(<span className={lc}>sin</span>, "sin", "sin")}
+              {funcBtn(<span className={lc}>cos</span>, "cos", "cos")}
+              {funcBtn(<span className={lc}>tan</span>, "tan", "tan")}
             </div>
 
             {/* --- Function Keys Row 3: 1/x  x⮂y  R🠟  STO  RCL --- */}
@@ -813,28 +290,11 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
                 marginBottom: "5px",
               }}
             >
-              {funcBtn(oneOverXLabel, "1/x", () => operation("1/x"), "1/x")}
-              {funcBtn(swapLabel, "x⮂y", () => operation("x\u2B82y"), "x\u2B82y")}
-              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, "R🠟", () => {
-                if (improperOperation) return
-                setStack((prev) => ({
-                  x: prev.y,
-                  y: prev.z,
-                  z: prev.t,
-                  t: prev.x,
-                }))
-                setEntering(false)
-                setEntryBuffer("")
-                setEntryDecimalExplicit(false)
-                setEntrySign(1)
-                setStackLift(false)
-                setEexActive(false)
-                setEexExponentDigits("")
-                setEexMantissaText("")
-                setPendingSign(null)
-              }, "R\uD83E\uDC1F")}
-              {funcBtn("STO", "STO", store)}
-              {funcBtn("RCL", "RCL", recall)}
+              {funcBtn(oneOverXLabel, "1/x", "1/x")}
+              {funcBtn(swapLabel, "x⮂y", "x\u2B82y")}
+              {funcBtn(<span>R<span className="hp-symbol-arrow">{"\uD83E\uDC1F"}</span></span>, "R🠟", "R\uD83E\uDC1F")}
+              {funcBtn("STO", "STO")}
+              {funcBtn("RCL", "RCL")}
             </div>
 
             {/* --- Action row: ENTER  CHS  EEX  CLx --- */}
@@ -846,10 +306,10 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
                 marginBottom: "14px",
               }}
             >
-              {blueBtn(enterLabel, "ENTER", enter, "ENTER\uD83E\uDC6A")}
-              {blueBtn(<span>CH{"\u2009"}S</span>, "CHS", () => operation("CHS"), "CHS")}
-              {blueBtn(<span>E{"\u2009"}EX</span>, "EEX", () => operation("EEX"), "EEX")}
-              {blueBtn(clxLabel, "CLx", clearXRegister, "CLx")}
+              {blueBtn(enterLabel, "ENTER", "ENTER\uD83E\uDC6A")}
+              {blueBtn(<span>CH{"\u2009"}S</span>, "CHS", "CHS")}
+              {blueBtn(<span>E{"\u2009"}EX</span>, "EEX", "EEX")}
+              {blueBtn(clxLabel, "CLx", "CLx")}
             </div>
 
             {/* --- Engraved separator line --- */}
@@ -878,25 +338,25 @@ function HP35({ resetNonce = 0, clearXNonce = 0, onStackChange, onButtonPress }:
                 gap: "5px",
               }}
             >
-              {opBtn("\u2212", "-", () => operation("-"))}
-              {numBtn("7", "7", () => inputDigit("7"))}
-              {numBtn("8", "8", () => inputDigit("8"))}
-              {numBtn("9", "9", () => inputDigit("9"))}
+              {opBtn("\u2212", "-")}
+              {numBtn("7", "7")}
+              {numBtn("8", "8")}
+              {numBtn("9", "9")}
 
-              {opBtn("+", "+", () => operation("+"))}
-              {numBtn("4", "4", () => inputDigit("4"))}
-              {numBtn("5", "5", () => inputDigit("5"))}
-              {numBtn("6", "6", () => inputDigit("6"))}
+              {opBtn("+", "+")}
+              {numBtn("4", "4")}
+              {numBtn("5", "5")}
+              {numBtn("6", "6")}
 
-              {opBtn("\u00D7", "×", () => operation("\u00D7"))}
-              {numBtn("1", "1", () => inputDigit("1"))}
-              {numBtn("2", "2", () => inputDigit("2"))}
-              {numBtn("3", "3", () => inputDigit("3"))}
+              {opBtn("\u00D7", "×")}
+              {numBtn("1", "1")}
+              {numBtn("2", "2")}
+              {numBtn("3", "3")}
 
-              {opBtn("\u00F7", "÷", () => operation("\u00F7"))}
-              {numBtn("0", "0", () => inputDigit("0"))}
-              {numBtn(".", ".", inputDecimal)}
-              {numBtn(piLabel, "π", () => inputDigit("\u03C0"), "\u03C0")}
+              {opBtn("\u00F7", "÷")}
+              {numBtn("0", "0")}
+              {numBtn(".", ".")}
+              {numBtn(piLabel, "π", "\u03C0")}
             </div>
           </div>
 
