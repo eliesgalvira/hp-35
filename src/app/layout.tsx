@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "@fontsource/noto-sans-symbols-2/symbols-400.css";
 import "@fontsource/noto-sans-symbols/symbols-400.css";
@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   other: {
     "apple-mobile-web-app-title": "HP-35",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1c1816",
 };
 
 export default function RootLayout({
