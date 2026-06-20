@@ -1,6 +1,5 @@
 "use client"
 
-import { Effect } from "effect"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { buildDisplay, buildStackRows, initialCalculatorState, type CalculatorStackRow, type CalculatorToken } from "@/features/calculator/model"
 import { clearXRegister, pressToken, resetCalculator } from "@/features/calculator/engine"
@@ -10,8 +9,6 @@ interface UseCalculatorOptions {
   readonly clearXNonce?: number
   readonly onStackChange?: ((rows: CalculatorStackRow[]) => void) | undefined
 }
-
-const runSync = <A,>(effect: Effect.Effect<A, never>) => Effect.runSync(effect)
 
 export const useCalculatorModel = ({
   resetNonce = 0,
@@ -45,15 +42,15 @@ export const useCalculatorModel = ({
   }, [improperOperation])
 
   const dispatchToken = useCallback((token: CalculatorToken) => {
-    setState((current) => runSync(pressToken(current, token)))
+    setState((current) => pressToken(current, token))
   }, [])
 
   const dispatchReset = useCallback(() => {
-    setState(runSync(resetCalculator()))
+    setState(resetCalculator())
   }, [])
 
   const dispatchClearX = useCallback(() => {
-    setState((current) => runSync(clearXRegister(current)))
+    setState((current) => clearXRegister(current))
   }, [])
 
   useLayoutEffect(() => {

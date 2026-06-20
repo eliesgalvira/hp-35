@@ -1,4 +1,3 @@
-import { Effect } from "effect"
 import {
   buildDisplay,
   countEntryDigits,
@@ -20,7 +19,20 @@ import {
   initialCalculatorState,
 } from "@/features/calculator/model"
 
-type Transition<E = never> = Effect.Effect<CalculatorState, E, never>
+type CalculationResult<A, E extends CalculatorMathError = CalculatorMathError> =
+  | { readonly ok: true; readonly value: A }
+  | { readonly ok: false; readonly error: E }
+
+type Transition<E extends CalculatorMathError = CalculatorMathError> = CalculationResult<CalculatorState, E>
+
+const succeed = <A>(value: A): CalculationResult<A, never> => ({ ok: true, value })
+
+const fail = <E extends CalculatorMathError>(error: E): CalculationResult<never, E> => ({ ok: false, error })
+
+const mapSuccess = <A, B, E extends CalculatorMathError>(
+  result: CalculationResult<A, E>,
+  f: (value: A) => B,
+): CalculationResult<B, E> => (result.ok ? succeed(f(result.value)) : result)
 
 const pushStack = (state: CalculatorState, newX: number): CalculatorState => ({
   ...state,
@@ -56,19 +68,18 @@ const latchImproperOperation = (state: CalculatorState, error: CalculatorMathErr
   latchedError: error,
 })
 
-const normalizeResult = (operation: string, value: number): Effect.Effect<number, InvalidMathResultError, never> =>
-  Effect.gen(function* () {
-    if (Number.isNaN(value)) {
-      return yield* new InvalidMathResultError({ operation })
-    }
-    if (!Number.isFinite(value) || Math.abs(value) >= MAX_MAGNITUDE) {
-      return value < 0 ? -MAX_DISPLAY_VALUE : MAX_DISPLAY_VALUE
-    }
-    if (value !== 0 && Math.abs(value) < MIN_MAGNITUDE) {
-      return 0
-    }
-    return value
-  })
+const normalizeResult = (operation: string, value: number): CalculationResult<number, InvalidMathResultError> => {
+  if (Number.isNaN(value)) {
+    return fail(new InvalidMathResultError({ operation }))
+  }
+  if (!Number.isFinite(value) || Math.abs(value) >= MAX_MAGNITUDE) {
+    return succeed(value < 0 ? -MAX_DISPLAY_VALUE : MAX_DISPLAY_VALUE)
+  }
+  if (value !== 0 && Math.abs(value) < MIN_MAGNITUDE) {
+    return succeed(0)
+  }
+  return succeed(value)
+}
 
 const applyBinaryResult = (state: CalculatorState, value: number): CalculatorState =>
   finishOperation({
@@ -107,7 +118,7 @@ const prepareEntry = (state: CalculatorState): CalculatorState => {
 }
 
 const inputDigit = (state: CalculatorState, digit: string): Transition =>
-  Effect.succeed(
+  succeed(
     (() => {
       const prepared = prepareEntry(state)
 
@@ -169,7 +180,7 @@ const inputDigit = (state: CalculatorState, digit: string): Transition =>
   )
 
 const inputDecimal = (state: CalculatorState): Transition =>
-  Effect.succeed(
+  succeed(
     (() => {
       if (state.eexActive) {
         return state
@@ -201,118 +212,98 @@ const inputDecimal = (state: CalculatorState): Transition =>
   )
 
 const enter = (state: CalculatorState): Transition =>
-  Effect.succeed({
+  succeed({
     ...clearTransientModes(pushStack(state, state.stack.x)),
     stackDepth: Math.min(Math.max(state.stackDepth, 1) + 1, 4),
     latchedError: null,
   })
 
 const add = (state: CalculatorState): Transition<InvalidMathResultError> =>
-  Effect.map(normalizeResult("add", state.stack.y + state.stack.x), (value) => applyBinaryResult(state, value))
+  mapSuccess(normalizeResult("add", state.stack.y + state.stack.x), (value) => applyBinaryResult(state, value))
 
 const subtract = (state: CalculatorState): Transition<InvalidMathResultError> =>
-  Effect.map(normalizeResult("subtract", state.stack.y - state.stack.x), (value) => applyBinaryResult(state, value))
+  mapSuccess(normalizeResult("subtract", state.stack.y - state.stack.x), (value) => applyBinaryResult(state, value))
 
 const multiply = (state: CalculatorState): Transition<InvalidMathResultError> =>
-  Effect.map(normalizeResult("multiply", state.stack.y * state.stack.x), (value) => applyBinaryResult(state, value))
+  mapSuccess(normalizeResult("multiply", state.stack.y * state.stack.x), (value) => applyBinaryResult(state, value))
 
 const divide = (state: CalculatorState): Transition<DivideByZeroError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x === 0) {
-      return yield* new DivideByZeroError({ dividend: state.stack.y })
-    }
-    const normalized = yield* normalizeResult("divide", state.stack.y / state.stack.x)
-    return applyBinaryResult(state, normalized)
-  })
+  state.stack.x === 0
+    ? fail(new DivideByZeroError({ dividend: state.stack.y }))
+    : mapSuccess(normalizeResult("divide", state.stack.y / state.stack.x), (value) => applyBinaryResult(state, value))
 
 const raiseToPower = (state: CalculatorState): Transition<NonPositivePowerBaseError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x <= 0) {
-      return yield* new NonPositivePowerBaseError({ base: state.stack.x, exponent: state.stack.y })
-    }
-    const normalized = yield* normalizeResult("x^y", Math.pow(state.stack.x, state.stack.y))
-    return applyBinaryResult(state, normalized)
-  })
+  state.stack.y <= 0
+    ? fail(new NonPositivePowerBaseError({ base: state.stack.y, exponent: state.stack.x }))
+    : mapSuccess(normalizeResult("x^y", Math.pow(state.stack.y, state.stack.x)), (value) =>
+        applyBinaryResult(state, value),
+      )
 
 const squareRoot = (state: CalculatorState): Transition<NegativeSquareRootError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x < 0) {
-      return yield* new NegativeSquareRootError({ value: state.stack.x })
-    }
-    const normalized = yield* normalizeResult("sqrt", Math.sqrt(state.stack.x))
-    return applyUnaryResult(state, normalized)
-  })
+  state.stack.x < 0
+    ? fail(new NegativeSquareRootError({ value: state.stack.x }))
+    : mapSuccess(normalizeResult("sqrt", Math.sqrt(state.stack.x)), (value) => applyUnaryResult(state, value))
 
 const reciprocal = (state: CalculatorState): Transition<ReciprocalOfZeroError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x === 0) {
-      return yield* new ReciprocalOfZeroError({})
-    }
-    const normalized = yield* normalizeResult("reciprocal", 1 / state.stack.x)
-    return applyUnaryResult(state, normalized)
-  })
+  state.stack.x === 0
+    ? fail(new ReciprocalOfZeroError())
+    : mapSuccess(normalizeResult("reciprocal", 1 / state.stack.x), (value) => applyUnaryResult(state, value))
 
 const sine = (state: CalculatorState): Transition<InverseTrigDomainError | InvalidMathResultError> =>
-  Effect.gen(function* () {
+  (() => {
     if (state.arcActive) {
       if (state.stack.x < -1 || state.stack.x > 1) {
-        return yield* new InverseTrigDomainError({ operation: "sin", value: state.stack.x })
+        return fail(new InverseTrigDomainError({ operation: "sin", value: state.stack.x }))
       }
-      const normalized = yield* normalizeResult("asin", (Math.asin(state.stack.x) * 180) / Math.PI)
-      return applyUnaryResult({ ...state, arcActive: false }, normalized, true)
+      return mapSuccess(normalizeResult("asin", (Math.asin(state.stack.x) * 180) / Math.PI), (value) =>
+        applyUnaryResult({ ...state, arcActive: false }, value, true),
+      )
     }
-    const normalized = yield* normalizeResult("sin", Math.sin((state.stack.x * Math.PI) / 180))
-    return applyUnaryResult(state, normalized, true)
-  })
+    return mapSuccess(normalizeResult("sin", Math.sin((state.stack.x * Math.PI) / 180)), (value) =>
+      applyUnaryResult(state, value, true),
+    )
+  })()
 
 const cosine = (state: CalculatorState): Transition<InverseTrigDomainError | InvalidMathResultError> =>
-  Effect.gen(function* () {
+  (() => {
     if (state.arcActive) {
       if (state.stack.x < -1 || state.stack.x > 1) {
-        return yield* new InverseTrigDomainError({ operation: "cos", value: state.stack.x })
+        return fail(new InverseTrigDomainError({ operation: "cos", value: state.stack.x }))
       }
-      const normalized = yield* normalizeResult("acos", (Math.acos(state.stack.x) * 180) / Math.PI)
-      return applyUnaryResult({ ...state, arcActive: false }, normalized, true)
+      return mapSuccess(normalizeResult("acos", (Math.acos(state.stack.x) * 180) / Math.PI), (value) =>
+        applyUnaryResult({ ...state, arcActive: false }, value, true),
+      )
     }
-    const normalized = yield* normalizeResult("cos", Math.cos((state.stack.x * Math.PI) / 180))
-    return applyUnaryResult(state, normalized, true)
-  })
+    return mapSuccess(normalizeResult("cos", Math.cos((state.stack.x * Math.PI) / 180)), (value) =>
+      applyUnaryResult(state, value, true),
+    )
+  })()
 
 const tangent = (state: CalculatorState): Transition<InvalidMathResultError> =>
-  Effect.gen(function* () {
+  (() => {
     const value = state.arcActive
       ? (Math.atan(state.stack.x) * 180) / Math.PI
       : Math.tan((state.stack.x * Math.PI) / 180)
-    const normalized = yield* normalizeResult(state.arcActive ? "atan" : "tan", value)
-    return applyUnaryResult({ ...state, arcActive: false }, normalized, true)
-  })
+    return mapSuccess(normalizeResult(state.arcActive ? "atan" : "tan", value), (normalized) =>
+      applyUnaryResult({ ...state, arcActive: false }, normalized, true),
+    )
+  })()
 
 const logarithm = (state: CalculatorState): Transition<NonPositiveLogarithmError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x <= 0) {
-      return yield* new NonPositiveLogarithmError({ operation: "log", value: state.stack.x })
-    }
-    const normalized = yield* normalizeResult("log", Math.log10(state.stack.x))
-    return applyUnaryResult(state, normalized)
-  })
+  state.stack.x <= 0
+    ? fail(new NonPositiveLogarithmError({ operation: "log", value: state.stack.x }))
+    : mapSuccess(normalizeResult("log", Math.log10(state.stack.x)), (value) => applyUnaryResult(state, value))
 
 const naturalLogarithm = (state: CalculatorState): Transition<NonPositiveLogarithmError | InvalidMathResultError> =>
-  Effect.gen(function* () {
-    if (state.stack.x <= 0) {
-      return yield* new NonPositiveLogarithmError({ operation: "ln", value: state.stack.x })
-    }
-    const normalized = yield* normalizeResult("ln", Math.log(state.stack.x))
-    return applyUnaryResult(state, normalized)
-  })
+  state.stack.x <= 0
+    ? fail(new NonPositiveLogarithmError({ operation: "ln", value: state.stack.x }))
+    : mapSuccess(normalizeResult("ln", Math.log(state.stack.x)), (value) => applyUnaryResult(state, value))
 
 const exp = (state: CalculatorState): Transition<InvalidMathResultError> =>
-  Effect.gen(function* () {
-    const normalized = yield* normalizeResult("e^x", Math.exp(state.stack.x))
-    return applyUnaryResult(state, normalized)
-  })
+  mapSuccess(normalizeResult("e^x", Math.exp(state.stack.x)), (value) => applyUnaryResult(state, value))
 
 const enableExponentEntry = (state: CalculatorState): Transition =>
-  Effect.succeed(
+  succeed(
     (() => {
       if (state.eexActive) {
         return state
@@ -350,7 +341,7 @@ const enableExponentEntry = (state: CalculatorState): Transition =>
   )
 
 const changeSign = (state: CalculatorState): Transition =>
-  Effect.succeed(
+  succeed(
     (() => {
       if (state.eexActive) {
         if (state.eexExponentDigits !== "") {
@@ -386,7 +377,7 @@ const changeSign = (state: CalculatorState): Transition =>
   )
 
 const swapXAndY = (state: CalculatorState): Transition =>
-  Effect.succeed(
+  succeed(
     finishOperation({
       ...state,
       stack: {
@@ -399,7 +390,7 @@ const swapXAndY = (state: CalculatorState): Transition =>
   )
 
 const rollDown = (state: CalculatorState): Transition =>
-  Effect.succeed({
+  succeed({
     ...clearTransientModes({
       ...state,
       stack: {
@@ -413,7 +404,7 @@ const rollDown = (state: CalculatorState): Transition =>
   })
 
 const store = (state: CalculatorState): Transition =>
-  Effect.succeed({
+  succeed({
     ...state,
     memory: state.stack.x,
     entering: false,
@@ -424,7 +415,7 @@ const store = (state: CalculatorState): Transition =>
   })
 
 const recall = (state: CalculatorState): Transition =>
-  Effect.succeed({
+  succeed({
     ...pushStack(state, state.memory),
     stackDepth: Math.min(Math.max(state.stackDepth, 1) + 1, 4),
     entering: false,
@@ -436,10 +427,9 @@ const recall = (state: CalculatorState): Transition =>
     latchedError: null,
   })
 
-export const resetCalculator = (): Transition => Effect.succeed(initialCalculatorState)
+export const resetCalculator = (): CalculatorState => initialCalculatorState
 
-export const clearXRegister = (state: CalculatorState): Transition =>
-  Effect.succeed({
+export const clearXRegister = (state: CalculatorState): CalculatorState => ({
     ...clearTransientModes(state),
     latchedError: null,
     stack: { ...state.stack, x: 0 },
@@ -472,9 +462,9 @@ const dispatchActiveToken = (
     case "EEX":
       return enableExponentEntry(state)
     case "CLx":
-      return clearXRegister(state)
+      return succeed(clearXRegister(state))
     case "CLR":
-      return resetCalculator()
+      return succeed(resetCalculator())
     case "+":
       return add(state)
     case "-":
@@ -500,7 +490,7 @@ const dispatchActiveToken = (
     case "tan":
       return tangent(state)
     case "arc":
-      return Effect.succeed({
+      return succeed({
         ...clearTransientModes(state),
         arcActive: true,
         latchedError: null,
@@ -518,18 +508,19 @@ const dispatchActiveToken = (
   }
 }
 
-export const pressToken = (state: CalculatorState, token: CalculatorToken): Transition =>
-  state.latchedError && token !== "CLR" && token !== "CLx"
-    ? Effect.succeed(state)
-    : dispatchActiveToken(state, token).pipe(
-        Effect.catch((error: CalculatorMathError) => Effect.succeed(latchImproperOperation(state, error))),
-      )
+export const pressToken = (state: CalculatorState, token: CalculatorToken): CalculatorState => {
+  if (state.latchedError && token !== "CLR" && token !== "CLx") {
+    return state
+  }
 
-export const pressSequence = (state: CalculatorState, tokens: ReadonlyArray<CalculatorToken>): Transition =>
-  Effect.gen(function* () {
-    let currentState = state
-    for (const token of tokens) {
-      currentState = yield* pressToken(currentState, token)
-    }
-    return currentState
-  })
+  const result = dispatchActiveToken(state, token)
+  return result.ok ? result.value : latchImproperOperation(state, result.error)
+}
+
+export const pressSequence = (state: CalculatorState, tokens: ReadonlyArray<CalculatorToken>): CalculatorState => {
+  let currentState = state
+  for (const token of tokens) {
+    currentState = pressToken(currentState, token)
+  }
+  return currentState
+}

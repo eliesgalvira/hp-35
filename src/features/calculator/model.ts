@@ -1,4 +1,3 @@
-import { Schema } from "effect"
 import { formatNumberToLedDisplay, type LedDisplayParts } from "@/lib/hp-led-display"
 
 export type Sign = 1 | -1
@@ -73,55 +72,86 @@ export type CalculatorToken =
   | "STO"
   | "RCL"
 
-export class DivideByZeroError extends Schema.TaggedErrorClass<DivideByZeroError>()(
-  "DivideByZeroError",
-  {
-    dividend: Schema.Number,
-  },
-) {}
+export class DivideByZeroError extends Error {
+  readonly _tag = "DivideByZeroError"
+  readonly dividend: number
 
-export class ReciprocalOfZeroError extends Schema.TaggedErrorClass<ReciprocalOfZeroError>()(
-  "ReciprocalOfZeroError",
-  {},
-) {}
+  constructor({ dividend }: { readonly dividend: number }) {
+    super("Divide by zero")
+    this.name = "DivideByZeroError"
+    this.dividend = dividend
+  }
+}
 
-export class NegativeSquareRootError extends Schema.TaggedErrorClass<NegativeSquareRootError>()(
-  "NegativeSquareRootError",
-  {
-    value: Schema.Number,
-  },
-) {}
+export class ReciprocalOfZeroError extends Error {
+  readonly _tag = "ReciprocalOfZeroError"
 
-export class NonPositiveLogarithmError extends Schema.TaggedErrorClass<NonPositiveLogarithmError>()(
-  "NonPositiveLogarithmError",
-  {
-    operation: Schema.String,
-    value: Schema.Number,
-  },
-) {}
+  constructor() {
+    super("Reciprocal of zero")
+    this.name = "ReciprocalOfZeroError"
+  }
+}
 
-export class InverseTrigDomainError extends Schema.TaggedErrorClass<InverseTrigDomainError>()(
-  "InverseTrigDomainError",
-  {
-    operation: Schema.String,
-    value: Schema.Number,
-  },
-) {}
+export class NegativeSquareRootError extends Error {
+  readonly _tag = "NegativeSquareRootError"
+  readonly value: number
 
-export class NonPositivePowerBaseError extends Schema.TaggedErrorClass<NonPositivePowerBaseError>()(
-  "NonPositivePowerBaseError",
-  {
-    base: Schema.Number,
-    exponent: Schema.Number,
-  },
-) {}
+  constructor({ value }: { readonly value: number }) {
+    super("Square root of a negative number")
+    this.name = "NegativeSquareRootError"
+    this.value = value
+  }
+}
 
-export class InvalidMathResultError extends Schema.TaggedErrorClass<InvalidMathResultError>()(
-  "InvalidMathResultError",
-  {
-    operation: Schema.String,
-  },
-) {}
+export class NonPositiveLogarithmError extends Error {
+  readonly _tag = "NonPositiveLogarithmError"
+  readonly operation: string
+  readonly value: number
+
+  constructor({ operation, value }: { readonly operation: string; readonly value: number }) {
+    super(`${operation} of a nonpositive number`)
+    this.name = "NonPositiveLogarithmError"
+    this.operation = operation
+    this.value = value
+  }
+}
+
+export class InverseTrigDomainError extends Error {
+  readonly _tag = "InverseTrigDomainError"
+  readonly operation: string
+  readonly value: number
+
+  constructor({ operation, value }: { readonly operation: string; readonly value: number }) {
+    super(`${operation} outside inverse trigonometric domain`)
+    this.name = "InverseTrigDomainError"
+    this.operation = operation
+    this.value = value
+  }
+}
+
+export class NonPositivePowerBaseError extends Error {
+  readonly _tag = "NonPositivePowerBaseError"
+  readonly base: number
+  readonly exponent: number
+
+  constructor({ base, exponent }: { readonly base: number; readonly exponent: number }) {
+    super("Power base must be positive")
+    this.name = "NonPositivePowerBaseError"
+    this.base = base
+    this.exponent = exponent
+  }
+}
+
+export class InvalidMathResultError extends Error {
+  readonly _tag = "InvalidMathResultError"
+  readonly operation: string
+
+  constructor({ operation }: { readonly operation: string }) {
+    super(`${operation} returned an invalid result`)
+    this.name = "InvalidMathResultError"
+    this.operation = operation
+  }
+}
 
 export type CalculatorMathError =
   | DivideByZeroError
