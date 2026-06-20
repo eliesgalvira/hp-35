@@ -171,6 +171,21 @@
 }
 
 /* ─── HP Arrow Symbols – exact Unicode arrow glyph coverage on mobile ─── */
+@font-face {
+  font-family: "Noto Sans Symbols";
+  src: url("./fonts/noto-sans-symbols-symbols-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Noto Sans Symbols 2";
+  src: url("./fonts/noto-sans-symbols-2-symbols-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 .hp-symbol-arrow {
   font-family:
     "Noto Sans Symbols 2",

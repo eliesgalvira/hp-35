@@ -67,13 +67,11 @@ On desktop, these arrow codepoints rendered via system fallback fonts. On Androi
 
 To preserve the exact Unicode characters while fixing mobile rendering:
 
-- Added `@fontsource/noto-sans-symbols-2` and `@fontsource/noto-sans-symbols`.
-- Loaded symbol font CSS from `layout.tsx` imports:
-  - `@fontsource/noto-sans-symbols-2/symbols-400.css`
-  - `@fontsource/noto-sans-symbols/symbols-400.css`
+- Added local Noto Sans Symbols and Noto Sans Symbols 2 symbol-subset font assets under `src/app/fonts`.
+- Declared both symbol subsets in `globals.css` so Next bundles them as hashed static assets.
 - Added `.hp-symbol-arrow` class and applied it only to the three arrow glyph spans in `hp-35.tsx`.
 
-**Why this import path matters:** Referencing `../../node_modules/...` in `globals.css` compiled locally but failed on Vercel with module resolution errors. Importing Fontsource CSS through the app entrypoint (`layout.tsx`) is bundler-safe and deploy-safe.
+**Why local app assets:** Referencing `../../node_modules/...` in `globals.css` compiled locally but failed on Vercel with module resolution errors. Importing Fontsource CSS through `layout.tsx` worked, but produced an unnecessary same-origin preconnect in the generated document. Local app font assets keep the build deploy-safe while avoiding the package-level CSS side effect.
 
 **Weight note:** `.hp-symbol-arrow` intentionally does not force `font-weight`, so the glyphs inherit button weight and the `x⮂y` arrow keeps fuller heads/stroke like the original.
 
@@ -124,15 +122,15 @@ This avoids specificity conflicts and keeps layout logic colocated with the comp
 ## √x Radical
 
 Built from two pieces:
-1. The √ radical sign (U+221A) from STIX Two Math at **10px**, raised with a Tailwind `-top-[...]` offset so its start aligns with the bar.
+1. The √ radical sign (U+221A) from STIX Two Math at **10px**, raised with a Tailwind arbitrary top offset so its start aligns with the bar.
 2. The radicand 𝑥 (math italic) plus a separate, absolutely positioned **pseudo-element bar** so the bar can be positioned without moving the x.
 
-**Why a pseudo-element bar:** Fractional `border-t` thicknesses and `top` offsets snap to device pixels (e.g., 1.25px vs 1.24px or 0.08em vs 0.07em), causing visible jumps. Using `h-px` + `scale-y-[...]` provides smoother thickness tuning, and `translate-y-[var(--sqrt-bar-offset)]` gives a high-precision vertical slider.
+**Why a pseudo-element bar:** Fractional `border-t` thicknesses and `top` offsets snap to device pixels (e.g., 1.25px vs 1.24px or 0.08em vs 0.07em), causing visible jumps. Using `h-px` plus an arbitrary `scale-y` value provides smoother thickness tuning, and `translate-y-[var(--sqrt-bar-offset)]` gives a high-precision vertical slider.
 
 **Current approach (Tailwind):**
-- Bar thickness: `after:h-px after:bg-current after:scale-y-[...]`
+- Bar thickness: `after:h-px after:bg-current` plus an arbitrary `after:scale-y` value
 - Bar position: `after:top-0 after:translate-y-[var(--sqrt-bar-offset)]`
-- Bar length: `pr-[...]` on the radicand wrapper
+- Bar length: arbitrary `pr` value on the radicand wrapper
 
 **Rejected approaches:**
 - `text-decoration: overline` — too thick, wrong vertical position, can't control independently

@@ -188,12 +188,12 @@ describe("HP-35 behavior", () => {
     expect(displayNumber()).toBeCloseTo(Number(challenge.answer), precisionForChallengeAnswer(challenge.id))
   })
 
-  it("uses X as base for x^y", async () => {
+  it("uses Y as base and X as exponent for x^y", async () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
     await pressSequence(user, ["2", "ENTER\uD83E\uDC6A", "3", "x^y"])
-    expect(displayNumber()).toBeCloseTo(9, 6)
+    expect(displayNumber()).toBeCloseTo(8, 6)
   })
 
   it("uses degrees for trig functions", async () => {
@@ -474,7 +474,7 @@ describe("HP-35 behavior", () => {
     const user = userEvent.setup()
     render(<HP35 />)
 
-    await pressSequence(user, ["2", "ENTER🡪", "0", "x^y"])
+    await pressSequence(user, ["0", "ENTER🡪", "2", "x^y"])
     expectImproperOperationDisplay()
   })
 
