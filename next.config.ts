@@ -11,6 +11,8 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
+  // Next's static App Router output includes inline bootstrap/RSC scripts.
+  // Removing unsafe-inline requires a nonce or post-build hash pipeline.
   `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
   "connect-src 'self' https://vitals.vercel-insights.com",
   "manifest-src 'self'",
